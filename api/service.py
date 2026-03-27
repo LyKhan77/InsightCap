@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+import asyncio
+import dataclasses
+import json
+from typing import AsyncIterator
+
+from insightcap.config import InferenceConfig, SamplerConfig
+from insightcap.pipeline import CaptionPipeline
+from insightcap.video.reader import VideoReader
+
+from api.schemas import AnalysisResponse, AnalyzeParams
+
+
+class AnalysisService:
+    """Async bridge between FastAPI routes and the synchronous CaptionPipeline."""
+
+    _MAX_FRAMES = 20  # hard cap — keeps inference time manageable
+
+    def _compute_sampling(self, video_fps: float, total_native: int) -> tuple[int, int]:
+        """Return (frame_interval, max_frames) auto-computed from video metadata.
+
+        Strategy: ~1 frame per second of video, capped at _MAX_FRAMES.
+        """
+        frame_interval = max(1, round(video_fps))  # 1 capture per second
+        indices = list(range(0, total_native, frame_interval))[: self._MAX_FRAMES]
+        return frame_interval, len(indices)
+
+    def _build_pipeline(self, model: str, frame_interval: int) -> CaptionPipeline:
+        return CaptionPipeline(
+            sampler_config=SamplerConfig(frame_interval=frame_interval, max_frames=self._MAX_FRAMES),
+            inference_config=InferenceConfig(model_id=model),
+        )
+
+    async def run(self, video_path: str, params: AnalyzeParams) -> AnalysisResponse:
+        """Run the full pipeline and return a complete AnalysisResponse."""
+        try:
+            with VideoReader(video_path) as _vr:
+                video_fps = _vr.fps
+                total_native = int(_vr.frame_count)
+        except Exception:
+            video_fps = 30.0
+            total_native = 0
+        frame_interval, _ = self._compute_sampling(video_fps, total_native)
+        pipeline = self._build_pipeline(params.model, frame_interval)
+        result = await asyncio.to_thread(pipeline.run, video_path)
+        return AnalysisResponse(**dataclasses.asdict(result))
+
+    async def run_stream(
+        self, video_path: str, params: AnalyzeParams
+    ) -> AsyncIterator[str]:
+        """Run the pipeline and yield Server-Sent Events as each frame completes.
+
+        Event types:
+          - init:    {"total_frames": N, "video_fps": F, "duration_seconds": D}
+          - frame:   {"index": N, "caption": "...", "timestamp_seconds": T}
+          - summary: {"caption": "..."}
+          - done:    {"frame_count": N, "duration_seconds": F, "device_used": "...", "model_id": "..."}
+        """
+        def _sse(event: str, data: dict) -> str:
+            return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+        # Read video metadata to compute sampling params and emit init event.
+        try:
+            with VideoReader(video_path) as _vr:
+                video_fps = _vr.fps
+                total_native = int(_vr.frame_count)
+                duration = _vr.duration_seconds
+        except Exception:
+            video_fps = 30.0
+            total_native = 0
+            duration = 0.0
+
+        frame_interval, total_frames = self._compute_sampling(video_fps, total_native)
+
+        # Emit init event BEFORE starting pipeline — frontend uses this to
+        # show correct total and trigger video autoplay.
+        yield _sse("init", {
+            "total_frames": total_frames,
+            "video_fps": video_fps,
+            "duration_seconds": duration,
+        })
+
+        loop = asyncio.get_event_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def on_frame_done(idx: int, caption: str) -> None:
+            timestamp = (idx * frame_interval) / video_fps if video_fps > 0 else 0.0
+            loop.call_soon_threadsafe(queue.put_nowait, (idx, caption, timestamp))
+
+        result_holder: list = []
+
+        def _run_pipeline() -> None:
+            pipeline = self._build_pipeline(params.model, frame_interval)
+            result = pipeline.run(
+                video_path,
+                time_limit_seconds=duration,
+                on_frame_done=on_frame_done,
+            )
+            result_holder.append(result)
+            loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel
+
+        asyncio.ensure_future(asyncio.to_thread(_run_pipeline))
+
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            idx, caption, timestamp = item
+            yield _sse("frame", {"index": idx, "caption": caption, "timestamp_seconds": timestamp})
+
+        if result_holder:
+            result = result_holder[0]
+            yield _sse("summary", {"caption": result.caption})
+            yield _sse("done", {
+                "frame_count": result.frame_count,
+                "duration_seconds": result.duration_seconds,
+                "device_used": result.device_used,
+                "model_id": result.model_id,
+                "video_fps": result.video_fps,
+                "frame_interval": result.frame_interval,
+            })
