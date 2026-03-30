@@ -62,6 +62,30 @@ class PromptBuilder:
             "images": [self.frame_to_bytes(frame)],
         }
 
+    def build_live_frame_prompt(
+        self,
+        previous_captions: list[str],
+        frame_num: int,
+        source_label: str,
+    ) -> str:
+        """Build a prompt for a live frame without assuming a finite video."""
+        if previous_captions:
+            context_lines = "\n".join(
+                f"Recent observation {i + 1}: {caption}"
+                for i, caption in enumerate(previous_captions)
+            )
+            return (
+                f"Source: {source_label}\n"
+                f"Recent observations:\n{context_lines}\n\n"
+                f"Now describe the latest live camera frame #{frame_num}. "
+                f"Continue the monitoring narrative. {self.frame_prompt}"
+            )
+        return (
+            f"Source: {source_label}\n"
+            f"Describe the latest live camera frame #{frame_num}. "
+            f"Continue the monitoring narrative. {self.frame_prompt}"
+        )
+
     def build_summary_message(self, frame_captions: list[str], summary_prompt: str) -> dict:
         """Build the Ollama chat message for summarizing all frame captions."""
         captions_text = "\n".join(

@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from insightcap.device import detect_device
 from api.routes.analyze import router as analyze_router
+from api.routes.rtsp import router as rtsp_router
+from api.rtsp_service import rtsp_session_service
 
 app = FastAPI(
     title="InsightCap API",
@@ -20,6 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(analyze_router, prefix="/api/v1", tags=["analyze"])
+app.include_router(rtsp_router, prefix="/api/v1/rtsp", tags=["rtsp"])
 
 
 @app.get("/health", tags=["system"])
@@ -31,3 +34,9 @@ async def health() -> dict:
 @app.get("/", tags=["system"])
 async def root() -> dict:
     return {"name": "InsightCap API", "version": "2.0.0", "docs": "/docs"}
+
+
+@app.on_event("shutdown")
+async def shutdown_rtsp_sessions() -> None:
+    """Ensure background RTSP worker threads are asked to stop."""
+    rtsp_session_service.shutdown()
