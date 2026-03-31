@@ -4,6 +4,8 @@ from __future__ import annotations
 import streamlit as st
 from typing import Optional, Tuple
 
+from web.utils.prompts import VIDEO_PROMPT_PRESETS, RTSP_PROMPT_PRESETS
+
 
 def _render_system_status():
     st.sidebar.markdown("## SYSTEM_STATUS")
@@ -28,6 +30,117 @@ def _render_system_status():
         st.rerun()
 
 
+def _render_video_prompt_config() -> dict:
+    """Render prompt configuration section for Video mode."""
+    st.sidebar.markdown("---")
+    
+    with st.sidebar.expander("PROMPT_CONFIG", expanded=False):
+        preset_names = list(VIDEO_PROMPT_PRESETS.keys())
+        selected_preset = st.selectbox(
+            "PRESET",
+            options=preset_names,
+            index=0,
+            help="Select a prompt template",
+            key="video_preset_select",
+        )
+        
+        use_custom = st.checkbox(
+            "CUSTOM_PROMPTS",
+            value=False,
+            help="Enable to edit prompts manually. Uncheck to use preset values.",
+            key="video_use_custom",
+        )
+        
+        preset_values = VIDEO_PROMPT_PRESETS[selected_preset]
+        
+        if use_custom:
+            frame_prompt = st.text_area(
+                "FRAME_PROMPT",
+                value=st.session_state.get("video_frame_prompt_custom", preset_values["frame_prompt"]),
+                height=100,
+                help="Custom prompt for describing individual frames",
+                key="video_frame_prompt_custom",
+            )
+            summary_prompt = st.text_area(
+                "SUMMARY_PROMPT",
+                value=st.session_state.get("video_summary_prompt_custom", preset_values["summary_prompt"]),
+                height=100,
+                help="Custom prompt for summarizing the video",
+                key="video_summary_prompt_custom",
+            )
+            final_frame = frame_prompt
+            final_summary = summary_prompt
+        else:
+            st.text_area(
+                "FRAME_PROMPT",
+                value=preset_values["frame_prompt"],
+                height=100,
+                disabled=True,
+                help="Preset prompt (enable CUSTOM_PROMPTS to edit)",
+            )
+            st.text_area(
+                "SUMMARY_PROMPT",
+                value=preset_values["summary_prompt"],
+                height=100,
+                disabled=True,
+                help="Preset prompt (enable CUSTOM_PROMPTS to edit)",
+            )
+            final_frame = preset_values["frame_prompt"]
+            final_summary = preset_values["summary_prompt"]
+        
+    return {
+        "frame_prompt": final_frame,
+        "summary_prompt": final_summary,
+    }
+
+
+def _render_rtsp_prompt_config() -> dict:
+    """Render prompt configuration section for RTSP mode."""
+    st.sidebar.markdown("---")
+    
+    with st.sidebar.expander("PROMPT_CONFIG", expanded=False):
+        preset_names = list(RTSP_PROMPT_PRESETS.keys())
+        selected_preset = st.selectbox(
+            "PRESET",
+            options=preset_names,
+            index=0,
+            help="Select a prompt template",
+            key="rtsp_preset_select",
+        )
+        
+        use_custom = st.checkbox(
+            "CUSTOM_PROMPT",
+            value=False,
+            help="Enable to edit prompt manually. Uncheck to use preset value.",
+            key="rtsp_use_custom",
+        )
+        
+        preset_values = RTSP_PROMPT_PRESETS[selected_preset]
+        
+        if use_custom:
+            frame_prompt = st.text_area(
+                "FRAME_PROMPT",
+                value=st.session_state.get("rtsp_frame_prompt_custom", preset_values["frame_prompt"]),
+                height=100,
+                help="Custom prompt for describing live camera frames",
+                key="rtsp_frame_prompt_custom",
+            )
+            final_frame = frame_prompt
+        else:
+            st.text_area(
+                "FRAME_PROMPT",
+                value=preset_values["frame_prompt"],
+                height=100,
+                disabled=True,
+                help="Preset prompt (enable CUSTOM_PROMPT to edit)",
+            )
+            final_frame = preset_values["frame_prompt"]
+        
+    return {
+        "frame_prompt": final_frame,
+    }
+
+
 def render_video_sidebar(api_client) -> Tuple[Optional[bytes], dict]:
     """Render sidebar with upload-video configuration."""
 
@@ -50,12 +163,16 @@ def render_video_sidebar(api_client) -> Tuple[Optional[bytes], dict]:
         help="Ollama model for captioning"
     )
 
+    prompt_config = _render_video_prompt_config()
+
     st.sidebar.markdown("---")
 
     _render_system_status()
 
     config = {
-        "model": model
+        "model": model,
+        "frame_prompt": prompt_config.get("frame_prompt"),
+        "summary_prompt": prompt_config.get("summary_prompt"),
     }
 
     return uploaded_file, config
@@ -103,6 +220,8 @@ def render_rtsp_sidebar(api_client) -> dict:
     )
     st.session_state.rtsp_sample_seconds = sample_every_seconds
 
+    prompt_config = _render_rtsp_prompt_config()
+
     st.sidebar.markdown("---")
 
     _render_system_status()
@@ -112,6 +231,7 @@ def render_rtsp_sidebar(api_client) -> dict:
         "session_name": session_name.strip(),
         "model": model,
         "sample_every_seconds": float(sample_every_seconds),
+        "frame_prompt": prompt_config.get("frame_prompt"),
     }
 
 

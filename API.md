@@ -97,6 +97,19 @@ curl -X POST http://localhost:6060/api/v1/analyze \
   -F "model=qwen3.5:0.8b"
 ```
 
+Parameter opsional:
+- `frame_prompt`: Custom prompt untuk deskripsi setiap frame
+- `summary_prompt`: Custom prompt untuk ringkasan video
+
+Contoh dengan custom prompts:
+```bash
+curl -X POST http://localhost:6060/api/v1/analyze \
+  -F "file=@traffic.mp4" \
+  -F "model=qwen3.5:0.8b" \
+  -F "frame_prompt=Analyze this traffic frame. Count vehicles and identify colors precisely." \
+  -F "summary_prompt=How many white vehicles passed by?"
+```
+
 Contoh response:
 
 ```json
@@ -124,6 +137,10 @@ curl -X POST http://localhost:6060/api/v1/analyze/stream \
   -F "model=qwen3.5:0.8b" \
   --no-buffer
 ```
+
+Parameter opsional:
+- `frame_prompt`: Custom prompt untuk deskripsi setiap frame
+- `summary_prompt`: Custom prompt untuk ringkasan video
 
 Urutan event utama:
 
@@ -160,6 +177,22 @@ curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
     "model": "qwen3.5:0.8b",
     "sample_every_seconds": 1.0,
     "session_name": "front-gate"
+  }'
+```
+
+Parameter opsional:
+- `frame_prompt`: Custom prompt untuk deskripsi frame RTSP
+
+Contoh dengan custom prompt:
+```bash
+curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rtsp_url": "rtsp://user:password@camera-host/stream",
+    "model": "qwen3.5:0.8b",
+    "sample_every_seconds": 1.0,
+    "session_name": "traffic-camera",
+    "frame_prompt": "Monitor traffic and count vehicles. Report vehicle colors precisely."
   }'
 ```
 
@@ -275,6 +308,45 @@ Gunakan pola ini:
 3. gunakan `preview.mjpeg` untuk panel live stream
 4. gunakan `GET /api/v1/rtsp/sessions/{session_id}` untuk polling status jika diperlukan
 5. `DELETE /api/v1/rtsp/sessions/{session_id}` saat monitoring selesai
+
+## Prompt Configuration
+
+API mendukung custom prompts untuk mengontrol bagaimana model mendeskripsikan video dan frame.
+
+### Parameter Prompt
+
+| Endpoint | Parameter | Tipe | Default |
+|----------|-----------|------|---------|
+| `POST /api/v1/analyze` | `frame_prompt` | string | Default dari `InferenceConfig` |
+| `POST /api/v1/analyze` | `summary_prompt` | string | Default dari `InferenceConfig` |
+| `POST /api/v1/analyze/stream` | `frame_prompt` | string | Default dari `InferenceConfig` |
+| `POST /api/v1/analyze/stream` | `summary_prompt` | string | Default dari `InferenceConfig` |
+| `POST /api/v1/rtsp/sessions` | `frame_prompt` | string | Default dari `InferenceConfig` |
+
+### Contoh Use Case
+
+**Analisis Traffic:**
+```bash
+curl -X POST http://localhost:6060/api/v1/analyze \
+  -F "file=@traffic.mp4" \
+  -F "frame_prompt=Analyze this traffic camera frame. For each vehicle, report type and color." \
+  -F "summary_prompt=How many white cars passed by?"
+```
+
+**Security Monitoring RTSP:**
+```bash
+curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rtsp_url": "rtsp://camera-url",
+    "frame_prompt": "Security monitoring: count people, detect suspicious behavior, report vehicle colors."
+  }'
+```
+
+Catatan:
+- Jika tidak disediakan, menggunakan default dari backend
+- Prompt yang baik spesifik dan jelas
+- Untuk pertanyaan spesifik (misal: "How many white cars?"), gunakan `summary_prompt`
 
 ## Troubleshoot API
 
@@ -425,4 +497,7 @@ Bagian implementasi utama:
 - `api/rtsp_service.py`
 - `api/schemas.py`
 - `api/rtsp_schemas.py`
+- `api/service.py`
+- `insightcap/config.py`
+- `insightcap/prompt/builder.py`
 

@@ -20,6 +20,10 @@ class RTSPSessionCreateRequest(BaseModel):
         max_length=100,
         description="Optional display name for the RTSP session.",
     )
+    frame_prompt: Optional[str] = Field(
+        default=None,
+        description="Custom prompt for live frame descriptions.",
+    )
 
 
 class RTSPSessionResponse(BaseModel):

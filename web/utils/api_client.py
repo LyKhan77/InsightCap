@@ -42,12 +42,18 @@ class APIClient:
     def analyze_stream(
         self,
         video_path: str,
-        model: str = "qwen3.5:0.8b"
+        model: str = "qwen3.5:0.8b",
+        frame_prompt: str | None = None,
+        summary_prompt: str | None = None,
     ) -> Generator[Dict[str, Any], None, None]:
         """Stream analysis results via SSE."""
         with open(video_path, "rb") as f:
             files = {"file": f}
-            data = {"model": model}
+            data: Dict[str, Any] = {"model": model}
+            if frame_prompt:
+                data["frame_prompt"] = frame_prompt
+            if summary_prompt:
+                data["summary_prompt"] = summary_prompt
 
             try:
                 response = requests.post(
@@ -79,12 +85,18 @@ class APIClient:
     def analyze(
         self,
         video_path: str,
-        model: str = "qwen3.5:0.8b"
+        model: str = "qwen3.5:0.8b",
+        frame_prompt: str | None = None,
+        summary_prompt: str | None = None,
     ) -> Dict[str, Any]:
         """Non-streaming analysis."""
         with open(video_path, "rb") as f:
             files = {"file": f}
-            data = {"model": model}
+            data: Dict[str, Any] = {"model": model}
+            if frame_prompt:
+                data["frame_prompt"] = frame_prompt
+            if summary_prompt:
+                data["summary_prompt"] = summary_prompt
 
             try:
                 response = requests.post(
@@ -109,6 +121,7 @@ class APIClient:
         model: str = "qwen3.5:0.8b",
         sample_every_seconds: float = 1.0,
         session_name: str | None = None,
+        frame_prompt: str | None = None,
     ) -> Dict[str, Any]:
         """Create and start a new RTSP monitoring session."""
         payload: Dict[str, Any] = {
@@ -118,6 +131,8 @@ class APIClient:
         }
         if session_name:
             payload["session_name"] = session_name
+        if frame_prompt:
+            payload["frame_prompt"] = frame_prompt
 
         try:
             response = requests.post(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from insightcap.config import InferenceConfig, SamplerConfig
 from insightcap.pipeline import CaptionPipeline
@@ -26,10 +26,22 @@ class AnalysisService:
         indices = list(range(0, total_native, frame_interval))[: self._MAX_FRAMES]
         return frame_interval, len(indices)
 
-    def _build_pipeline(self, model: str, frame_interval: int) -> CaptionPipeline:
+    def _build_pipeline(
+        self,
+        model: str,
+        frame_interval: int,
+        frame_prompt: Optional[str] = None,
+        summary_prompt: Optional[str] = None,
+    ) -> CaptionPipeline:
+        inference_config = InferenceConfig(model_id=model)
+        if frame_prompt:
+            inference_config.frame_prompt = frame_prompt
+        if summary_prompt:
+            inference_config.summary_prompt = summary_prompt
+
         return CaptionPipeline(
             sampler_config=SamplerConfig(frame_interval=frame_interval, max_frames=self._MAX_FRAMES),
-            inference_config=InferenceConfig(model_id=model),
+            inference_config=inference_config,
         )
 
     async def run(self, video_path: str, params: AnalyzeParams) -> AnalysisResponse:
@@ -42,7 +54,12 @@ class AnalysisService:
             video_fps = 30.0
             total_native = 0
         frame_interval, _ = self._compute_sampling(video_fps, total_native)
-        pipeline = self._build_pipeline(params.model, frame_interval)
+        pipeline = self._build_pipeline(
+            params.model,
+            frame_interval,
+            frame_prompt=params.frame_prompt,
+            summary_prompt=params.summary_prompt,
+        )
         result = await asyncio.to_thread(pipeline.run, video_path)
         return AnalysisResponse(**dataclasses.asdict(result))
 
@@ -91,7 +108,12 @@ class AnalysisService:
         result_holder: list = []
 
         def _run_pipeline() -> None:
-            pipeline = self._build_pipeline(params.model, frame_interval)
+            pipeline = self._build_pipeline(
+                params.model,
+                frame_interval,
+                frame_prompt=params.frame_prompt,
+                summary_prompt=params.summary_prompt,
+            )
             result = pipeline.run(
                 video_path,
                 time_limit_seconds=duration,

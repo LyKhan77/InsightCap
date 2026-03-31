@@ -50,12 +50,12 @@ class PromptBuilder:
                 for i, c in enumerate(previous_captions)
             )
             prompt = (
+                f"{self.frame_prompt}\n\n"
                 f"Previous frame descriptions:\n{context_lines}\n\n"
-                f"Now describe frame {frame_num} of {total_frames}, "
-                f"continuing the narrative. {self.frame_prompt}"
+                f"Describe frame {frame_num} of {total_frames}."
             )
         else:
-            prompt = f"Describe frame 1 of {total_frames}. {self.frame_prompt}"
+            prompt = f"{self.frame_prompt}\n\nDescribe frame 1 of {total_frames}."
         return {
             "role": "user",
             "content": prompt,
@@ -91,7 +91,12 @@ class PromptBuilder:
         captions_text = "\n".join(
             f"Frame {i + 1}: {caption}" for i, caption in enumerate(frame_captions)
         )
+        prompt = (
+            f"{summary_prompt}\n\n"
+            f"Frame-by-frame descriptions:\n{captions_text}\n\n"
+            f"Answer the question above based on the frame descriptions."
+        )
         return {
             "role": "user",
-            "content": f"{summary_prompt}\n\n{captions_text}",
+            "content": prompt,
         }

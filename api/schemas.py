@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import Optional
 from pydantic import BaseModel, Field
 
 
 class AnalyzeParams(BaseModel):
     model: str = Field("qwen3.5:0.8b", description="Ollama model name.")
+    frame_prompt: Optional[str] = Field(None, description="Custom prompt for frame descriptions.")
+    summary_prompt: Optional[str] = Field(None, description="Custom prompt for video summary.")
 
 
 class AnalysisResponse(BaseModel):

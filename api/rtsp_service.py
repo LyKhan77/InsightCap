@@ -86,9 +86,13 @@ class RtspSession:
         self.lag_ms: float | None = None
         self.last_error: str | None = None
 
-        self._backend = get_backend(InferenceConfig(model_id=self.model_id))
-        self._prompt_builder = PromptBuilder()
-        self._context_window = InferenceConfig().temporal_context_frames
+        inference_config = InferenceConfig(model_id=self.model_id)
+        if request.frame_prompt:
+            inference_config.frame_prompt = request.frame_prompt
+
+        self._backend = get_backend(inference_config)
+        self._prompt_builder = PromptBuilder(frame_prompt=inference_config.frame_prompt)
+        self._context_window = inference_config.temporal_context_frames
 
     def start(self) -> None:
         with self._lock:

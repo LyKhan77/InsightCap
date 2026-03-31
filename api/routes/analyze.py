@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 from contextlib import asynccontextmanager, contextmanager
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -48,10 +48,12 @@ def _temp_video(file: UploadFile):
 async def analyze(
     file: UploadFile,
     model: Annotated[str, Form()] = "qwen3.5:0.8b",
+    frame_prompt: Annotated[Optional[str], Form()] = None,
+    summary_prompt: Annotated[Optional[str], Form()] = None,
 ) -> AnalysisResponse:
     """Upload a video file and receive a full caption result as JSON."""
     _validate_video(file)
-    params = AnalyzeParams(model=model)
+    params = AnalyzeParams(model=model, frame_prompt=frame_prompt, summary_prompt=summary_prompt)
     try:
         with _temp_video(file) as path:
             return await _service.run(path, params)
@@ -63,13 +65,15 @@ async def analyze(
 async def analyze_stream(
     file: UploadFile,
     model: Annotated[str, Form()] = "qwen3.5:0.8b",
+    frame_prompt: Annotated[Optional[str], Form()] = None,
+    summary_prompt: Annotated[Optional[str], Form()] = None,
 ) -> StreamingResponse:
     """Upload a video file and receive captions as Server-Sent Events.
 
     Events are emitted in real-time as each frame is captioned.
     """
     _validate_video(file)
-    params = AnalyzeParams(model=model)
+    params = AnalyzeParams(model=model, frame_prompt=frame_prompt, summary_prompt=summary_prompt)
 
     # Save the file to temp before streaming (UploadFile can't be read in a background thread)
     ext = os.path.splitext(file.filename or ".mp4")[1].lower() or ".mp4"
