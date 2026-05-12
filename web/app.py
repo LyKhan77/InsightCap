@@ -375,7 +375,7 @@ def render_app_header(mode: str):
         </div>
         <div style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:#3a3a42;
                     margin-top:0.2rem;">
-            v2.0.0 // QWEN3.5_0.8B // OLLAMA_BACKEND
+            v2.0.0 // QWEN3.5_0.8B // VLLM_BACKEND
         </div>
     </div>
     """, unsafe_allow_html=True)

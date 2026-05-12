@@ -16,7 +16,7 @@
 | Component | Technology |
 |-----------|------------|
 | Core Engine | Python 3.10+ |
-| VLM Backend | Ollama + Qwen3.5:0.8B |
+| VLM Backend | vLLM + Qwen/Qwen3.5-0.8B |
 | Video Processing | OpenCV (cv2) |
 | API Layer | FastAPI + Uvicorn |
 | Web Interface | Streamlit |
@@ -65,7 +65,7 @@
 │  │  │   └── live_reader.py   → LiveStreamReader (RTSP/camera)           │  │
 │  │  ├── inference/                                                        │  │
 │  │  │   ├── base.py           → CaptionBackend ABC                      │  │
-│  │  │   ├── ollama_backend.py  → OllamaBackend (qwen3.5:0.8b)           │  │
+│  │  │   ├── vllm_backend.py    → VLLMBackend (qwen3.5:0.8b alias)       │  │
 │  │  │   └── factory.py        → Backend instantiation                    │  │
 │  │  ├── prompt/                                                           │  │
 │  │  │   └── builder.py        → PromptBuilder (temporal context)        │  │
@@ -75,13 +75,13 @@
 │  │  └── cli.py                → Click CLI entrypoint                      │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                    │ Ollama API
+                                    │ OpenAI-compatible API
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       INFERENCE RUNTIME                                       │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  Ollama Server (localhost:11434)                                      │  │
-│  │  └── Model: qwen3.5:0.8b (vision-language)                           │  │
+│  │  vLLM Docker Service (localhost:8060/v1)                              │  │
+│  │  └── Model: Qwen/Qwen3.5-0.8B served as qwen3.5:0.8b                 │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -249,7 +249,7 @@ def build_frame_message_with_context(
 ┌──────────────────────────────────────────────────────────────────┐
 │                        CaptionPipeline                            │
 │  ┌─────────────┐    ┌─────────────────┐    ┌──────────────────┐ │
-│  │ for frame   │───►│ PromptBuilder    │───►│ OllamaBackend    │ │
+│  │ for frame   │───►│ PromptBuilder    │───►│ VLLMBackend      │ │
 │  │ in frames   │    │ (add context)    │    │ .generate_frame()│ │
 │  └─────────────┘    └─────────────────┘    └──────────────────┘ │
 │          │                                        │              │
@@ -261,7 +261,7 @@ def build_frame_message_with_context(
 │          │                                                       │
 │          ▼                                                       │
 │  ┌─────────────────┐    ┌──────────────────┐                    │
-│  │ OllamaBackend   │───►│ yield SSE event  │                    │
+│  │ VLLMBackend     │───►│ yield SSE event  │                    │
 │  │ .summarize()    │    │ "summary"        │                    │
 │  └─────────────────┘    └──────────────────┘                    │
 └──────────────────────────────────────────────────────────────────┘
@@ -372,23 +372,18 @@ class CaptionBackend(ABC):
         """Stream a summary caption given per-frame captions."""
 ```
 
-#### `insightcap/inference/ollama_backend.py` - OllamaBackend
+#### `insightcap/inference/vllm_backend.py` - VLLMBackend
 
 ```python
-class OllamaBackend(CaptionBackend):
-    """Inference backend using local Ollama server."""
-    
-    Key Features:
-        - Uses /no_think prefix to suppress Qwen3 thinking mode
-        - Supports streaming and non-streaming modes
-        - Handles both object-based and dict API responses
-    
-    Config:
-        - model_id: str = "qwen3.5:0.8b"
-        - stream: bool = False
-        - max_tokens: int = 1024
-        - temporal_context_frames: int = 3
+class VLLMBackend(CaptionBackend):
+    """Inference backend using a vLLM OpenAI-compatible server."""
 ```
+
+Key features:
+- Sends image frames as OpenAI vision `image_url` data URLs
+- Uses `qwen3.5:0.8b` as the served model alias
+- Calls `http://localhost:8060/v1/chat/completions`
+- Supports streaming and non-streaming modes
 
 #### `insightcap/pipeline.py` - CaptionPipeline
 
@@ -536,11 +531,11 @@ class StateManager:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `model_id` | str | "qwen3.5:0.8b" | Ollama model name |
+| `model_id` | str | "qwen3.5:0.8b" | vLLM served model alias |
 | `stream` | bool | False | Enable token streaming |
-| `backend` | str | "ollama" | Inference backend |
+| `backend` | str | "vllm" | Inference backend |
+| `vllm_base_url` | str | "http://localhost:8060/v1" | vLLM OpenAI-compatible API |
 | `max_tokens` | int | 1024 | Maximum response tokens |
-| `no_think` | bool | True | Disable Qwen3 thinking mode |
 | `temporal_context_frames` | int | 3 | Previous captions in prompt |
 | `frame_prompt` | str | "Describe what is happening..." | Frame instruction |
 | `summary_prompt` | str | "You are given a sequence..." | Summary instruction |
@@ -642,7 +637,7 @@ Upload video and receive real-time updates via Server-Sent Events.
 |-----------|------------------|-------|
 | VideoReader | Video dependent | OpenCV buffer |
 | FrameSampler | ~20 frames × W×H×3 | BGR arrays in memory |
-| Ollama Backend | Model-dependent | External process |
+| vLLM Backend | Model-dependent | Docker service |
 | RTSP Session | ~2 streams × preview | JPEG buffer |
 
 ### 9.3 Concurrency Model
@@ -663,8 +658,8 @@ RTSP Mode:  One worker thread per session
 ### 10.1 Development Mode
 
 ```bash
-# Terminal 1: Ollama Server
-ollama serve
+# Terminal 1: vLLM Server
+docker compose up vllm
 
 # Terminal 2: API Server
 uvicorn api.main:app --reload --port 6060
@@ -693,7 +688,7 @@ cd web && streamlit run app.py
               ┌────────────┼────────────┐
               ▼             ▼            ▼
         ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │ Ollama 1 │ │ Ollama 2 │ │ Ollama N │
+        │  vLLM 1  │ │  vLLM 2  │ │  vLLM N  │
         │ (GPU)    │ │ (GPU)    │ │ (GPU)    │
         └──────────┘ └──────────┘ └──────────┘
 ```
@@ -731,7 +726,7 @@ video-captioning/
 │   │   ├── __init__.py
 │   │   ├── base.py                   # CaptionBackend ABC
 │   │   ├── factory.py                # get_backend()
-│   │   └── ollama_backend.py          # OllamaBackend
+│   │   └── vllm_backend.py           # VLLMBackend
 │   └── prompt/
 │       ├── __init__.py
 │       └── builder.py                 # PromptBuilder
@@ -770,11 +765,11 @@ video-captioning/
 
 ## 12. Known Limitations
 
-1. **Sequential Inference**: Single Ollama call per frame, no GPU-level batching
+1. **Sequential Inference**: Single vLLM chat-completion call per frame, no frame-level batching
 2. **Time-Based Sync**: Video-caption synchronization is approximate, not frame-perfect
 3. **Memory Pressure**: Concurrent uploads may cause OOM on constrained hardware
 4. **No Authentication**: API is open without auth/rate limiting
-5. **Ollama Dependency**: Requires local Ollama server running
+5. **vLLM Dependency**: Requires Docker vLLM service running
 6. **RTSP Reconnection**: Basic reconnect logic, no sophisticated error recovery
 
 ---

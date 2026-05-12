@@ -160,7 +160,7 @@ def render_video_sidebar(api_client) -> Tuple[Optional[bytes], dict]:
         "MODEL",
         options=["qwen3.5:0.8b"],
         index=0,
-        help="Ollama model for captioning"
+        help="vLLM model for captioning"
     )
 
     prompt_config = _render_video_prompt_config()
@@ -206,7 +206,7 @@ def render_rtsp_sidebar(api_client) -> dict:
         "MODEL",
         options=["qwen3.5:0.8b"],
         index=0,
-        help="Ollama model for captioning",
+        help="vLLM model for captioning",
         key="rtsp_model_select",
     )
 

@@ -4,7 +4,7 @@
 
 **InsightCap API**
 
-InsightCap API adalah backend untuk analisis video dan monitoring kamera RTSP berbasis vision-language model `qwen3.5:0.8b` melalui Ollama.
+InsightCap API adalah backend untuk analisis video dan monitoring kamera RTSP berbasis vision-language model `Qwen/Qwen3.5-0.8B` melalui vLLM.
 
 API ini menyediakan dua mode terpisah:
 
@@ -45,12 +45,13 @@ source env/bin/activate
 uvicorn api.main:app --reload --port 6060
 ```
 
-Sebelum menjalankan API, pastikan Ollama aktif:
+Sebelum menjalankan API, pastikan vLLM aktif:
 
 ```bash
-ollama serve
-ollama pull qwen3.5:0.8b
+docker compose up vllm
 ```
+
+vLLM melayani model Hugging Face `Qwen/Qwen3.5-0.8B` dengan alias kompatibel `qwen3.5:0.8b` di `http://localhost:8060/v1`.
 
 ## Ringkasan Endpoint
 
@@ -83,7 +84,12 @@ Contoh response:
 ```json
 {
   "status": "ok",
-  "device": "mps"
+  "device": "cuda",
+  "backend": "vllm",
+  "vllm": {
+    "status": "ok",
+    "base_url": "http://localhost:8060/v1"
+  }
 }
 ```
 
@@ -368,7 +374,7 @@ Solusi:
 - pastikan `uvicorn api.main:app --reload --port 6060` sedang berjalan
 - pastikan port `6060` tidak dipakai service lain
 
-### 2. Ollama belum aktif
+### 2. vLLM belum aktif
 
 Gejala:
 
@@ -379,8 +385,7 @@ Gejala:
 Solusi:
 
 ```bash
-ollama serve
-ollama pull qwen3.5:0.8b
+docker compose up vllm
 ```
 
 ### 3. RTSP session berhasil dibuat tetapi preview kosong
@@ -500,4 +505,3 @@ Bagian implementasi utama:
 - `api/service.py`
 - `insightcap/config.py`
 - `insightcap/prompt/builder.py`
-

@@ -22,14 +22,14 @@ class PromptBuilder:
         return Image.fromarray(rgb)
 
     def frame_to_bytes(self, frame: np.ndarray, format: str = "JPEG") -> bytes:
-        """Convert a BGR numpy frame to JPEG bytes for Ollama."""
+        """Convert a BGR numpy frame to JPEG bytes for VLM backends."""
         pil_image = self.frame_to_pil(frame)
         buf = io.BytesIO()
         pil_image.save(buf, format=format)
         return buf.getvalue()
 
     def build_frame_message(self, frame: np.ndarray) -> dict:
-        """Build the Ollama chat message dict for a single frame."""
+        """Build a chat message dict for a single frame."""
         return {
             "role": "user",
             "content": self.frame_prompt,
@@ -87,7 +87,7 @@ class PromptBuilder:
         )
 
     def build_summary_message(self, frame_captions: list[str], summary_prompt: str) -> dict:
-        """Build the Ollama chat message for summarizing all frame captions."""
+        """Build the chat message for summarizing all frame captions."""
         captions_text = "\n".join(
             f"Frame {i + 1}: {caption}" for i, caption in enumerate(frame_captions)
         )

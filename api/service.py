@@ -33,7 +33,7 @@ class AnalysisService:
         frame_prompt: Optional[str] = None,
         summary_prompt: Optional[str] = None,
     ) -> CaptionPipeline:
-        inference_config = InferenceConfig(model_id=model)
+        inference_config = InferenceConfig(model_id=model, backend="vllm")
         if frame_prompt:
             inference_config.frame_prompt = frame_prompt
         if summary_prompt:

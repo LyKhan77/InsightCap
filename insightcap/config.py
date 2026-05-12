@@ -13,9 +13,14 @@ class SamplerConfig:
 class InferenceConfig:
     model_id: str = "qwen3.5:0.8b"
     stream: bool = False  
-    backend: str = "ollama"
+    backend: str = "vllm"
     max_tokens: int = 1024
-    no_think: bool = True  
+    vllm_base_url: str = "http://localhost:8060/v1"
+    api_key: str = "EMPTY"
+    temperature: float = 0.7
+    top_p: float = 0.8
+    presence_penalty: float = 1.5
+    top_k: int = 20
     temporal_context_frames: int = 3  
     frame_prompt: str = (
         "Describe what is happening in this video frame. "

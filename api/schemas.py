@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class AnalyzeParams(BaseModel):
-    model: str = Field("qwen3.5:0.8b", description="Ollama model name.")
+    model: str = Field("qwen3.5:0.8b", description="vLLM served model name.")
     frame_prompt: Optional[str] = Field(None, description="Custom prompt for frame descriptions.")
     summary_prompt: Optional[str] = Field(None, description="Custom prompt for video summary.")
 

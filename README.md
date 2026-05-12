@@ -1,6 +1,6 @@
 # InsightCap
 
-Video understanding and captioning system powered by `qwen3.5:0.8b` via Ollama.
+Video understanding and captioning system powered by `Qwen/Qwen3.5-0.8B` via vLLM.
 
 Analyzes a video file, generates per-frame captions with temporal context, and produces a coherent narrative summary — all streamed in real-time to the browser.
 
@@ -16,17 +16,17 @@ The API supports two separate modes:
 
 ## Prerequisites
 
-1. **Ollama** installed and running: https://ollama.com/download
+1. **Docker + NVIDIA Container Toolkit** installed and able to run GPU containers.
 
-2. Pull the model (~500MB):
-   ```bash
-   ollama pull qwen3.5:0.8b
-   ```
+2. vLLM is provided by `docker-compose.yml` as an OpenAI-compatible server.
+   The first run pulls a large `vllm/vllm-openai` image, so expect the first
+   startup to take time.
 
-3. Ensure Ollama server is running:
-   ```bash
-   ollama serve
-   ```
+   The service loads `Qwen/Qwen3.5-0.8B` and serves it under the alias
+   `qwen3.5:0.8b` at `http://localhost:8060/v1`.
+
+3. By default the container uses GPU `2` (`NVIDIA GeForce RTX 4090`). Override
+   with `VLLM_GPU_DEVICE=0 docker compose up vllm` if needed.
 
 ## Setup
 
@@ -38,17 +38,43 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## Running
+## Running the Full System
 
 ```bash
-# Terminal 1: Start API server
+# Terminal 1: Start vLLM service
+docker compose up vllm
+
+# Wait until this succeeds:
+curl http://localhost:8060/health
+
+# Terminal 2: Start API server
+source env/bin/activate
 uvicorn api.main:app --reload --port 6060
 
-# Terminal 2: Start Web App
+# Confirm API sees vLLM:
+curl http://localhost:6060/health
+
+# Terminal 3: Start Web App
+source env/bin/activate
 cd web && streamlit run app.py
 ```
 
 Access the web app at **http://localhost:8501**
+
+For background mode after the vLLM image is fully downloaded:
+
+```bash
+# Terminal 1: keep vLLM in the background
+docker compose up -d vllm
+
+# Terminal 2: API
+source env/bin/activate
+uvicorn api.main:app --reload --port 6060
+
+# Terminal 3: Web
+source env/bin/activate
+cd web && streamlit run app.py
+```
 
 ---
 
@@ -116,8 +142,8 @@ python -m insightcap.cli path/to/video.mp4 --output result.json
 
 ## Known Limitations
 
-- Ollama must be running before starting the API (`ollama serve`)
-- Sequential inference — one Ollama call per frame, no concurrency
+- vLLM must be running before analysis requests are sent (`docker compose up vllm`)
+- Sequential inference — one vLLM chat-completion call per frame, no frame batching yet
 - Sync is time-based approximation, not frame-perfect
 - The current Streamlit web app still targets uploaded video files; RTSP mode is exposed through the separate API endpoints
 - No authentication or rate limiting on the API

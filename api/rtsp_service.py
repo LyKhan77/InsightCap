@@ -86,7 +86,7 @@ class RtspSession:
         self.lag_ms: float | None = None
         self.last_error: str | None = None
 
-        inference_config = InferenceConfig(model_id=self.model_id)
+        inference_config = InferenceConfig(model_id=self.model_id, backend="vllm")
         if request.frame_prompt:
             inference_config.frame_prompt = request.frame_prompt
 

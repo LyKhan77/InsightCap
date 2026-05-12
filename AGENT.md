@@ -4,336 +4,240 @@
 
 ### Purpose
 
-**InsightCap** is a video understanding and captioning system that analyzes videos and generates textual descriptions of activities, objects, and events within video content. Built as a modular three-layer architecture: core engine → API → web interface.
+**InsightCap** is a video understanding system for generating captions from uploaded videos and live RTSP camera streams.
 
-### Primary Goals
+### Definition
 
-1. Build an efficient pipeline for video frame extraction and vision-language model inference
-2. Generate accurate narrative video captions with temporal context across frames
-3. Provide a modular architecture (`Engine -> API -> Web`) for easy integration
-4. Deliver real-time streaming captions synchronized with video playback
+InsightCap is a Python application with three layers:
+
+1. **Core engine**: reads frames, builds prompts, runs VLM inference, and returns captions.
+2. **API**: exposes uploaded-video analysis and RTSP monitoring endpoints.
+3. **Web app**: Streamlit interface for video mode and RTSP mode.
 
 ---
 
 ## Key Features
 
-### Current Features
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **Video Reading** | OpenCV-based video file parsing (MP4, AVI, MOV, MKV, WEBM, MPEG) | Implemented |
-| **Auto Frame Sampling** | ~1 frame/sec auto-computed from video fps, max 20 frames, no user config needed | Implemented |
-| **Temporal Context Captioning** | Each frame prompt includes last 3 captions for narrative continuity | Implemented |
-| **Time-Limited Pipeline** | Pipeline stops after `duration_seconds` wall-clock time — syncs with video end | Implemented |
-| **Summary Caption** | Aggregated narrative summary of full video content | Implemented |
-| **CLI Interface** | Command-line tool for video analysis | Implemented |
-| **REST API** | FastAPI endpoints for analyze and analyze/stream | Implemented |
-| **SSE Streaming** | Real-time frame captions via Server-Sent Events with `init` pre-event | Implemented |
-| **Web Interface** | Streamlit dual-panel UI with industrial dark theme | Implemented |
-| **JSON Export** | Downloadable analysis results | Implemented |
-
-### Planned Features
-
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| WebSocket Live Captioning | Real-time caption from camera/stream | High |
-| Batch Processing | Queue-based multi-video analysis | Medium |
-| Model Switching | Support alternative VLM models | Medium |
-| Docker Deployment | Containerized production deployment | High |
+- Uploaded video analysis through FastAPI and Streamlit.
+- SSE streaming for uploaded-video captions: `init`, `frame`, `summary`, `done`.
+- RTSP live monitoring with session lifecycle API.
+- RTSP live preview through MJPEG endpoint.
+- RTSP live events through WebSocket endpoint.
+- Frame sampling and temporal context prompts.
+- Summary generation from frame captions.
+- vLLM OpenAI-compatible inference backend as current default.
+- CLI entrypoint for local video analysis.
+- Unit tests for vLLM backend behavior.
 
 ---
 
 ## Architecture
 
-### Layer Overview
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        LAYER 3: WEB APP                         │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  Streamlit Interface (web/)                                 │ │
-│  │  - Video upload & autoplay-locked preview                   │ │
-│  │  - LIVE_STREAM panel (left): video + status                 │ │
-│  │  - LIVE_CAPTIONS panel (right): real-time streaming text    │ │
-│  │  - Final summary + JSON export                              │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        LAYER 2: API                             │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  FastAPI Server (api/)                                      │ │
-│  │  - POST /api/v1/analyze      → Full JSON response          │ │
-│  │  - POST /api/v1/analyze/stream → SSE streaming            │ │
-│  │  - GET  /health               → Health check              │ │
-│  │  - AnalysisService (async bridge)                           │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      LAYER 1: CORE ENGINE                       │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  Pipeline (insightcap/)                                     │ │
-│  │  ├── video/                                                 │ │
-│  │  │   ├── reader.py      → OpenCV video reading             │ │
-│  │  │   └── sampler.py     → Frame extraction logic           │ │
-│  │  ├── inference/                                             │ │
-│  │  │   ├── base.py        → CaptionBackend ABC                │ │
-│  │  │   ├── ollama_backend.py → Ollama integration            │ │
-│  │  │   └── factory.py     → Backend instantiation            │ │
-│  │  ├── prompt/                                                │ │
-│  │  │   └── builder.py     → Prompt construction + context    │ │
-│  │  ├── pipeline.py        → CaptionPipeline orchestration     │ │
-│  │  ├── config.py          → Configuration dataclasses          │ │
-│  │  ├── device.py          → Device detection (mps/cuda/cpu)   │ │
-│  │  └── cli.py             → Command-line interface             │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+web/ Streamlit UI
+  ├─ video mode: upload local video, stream captions over SSE
+  └─ rtsp mode: start camera session, show MJPEG preview + WebSocket captions
+
+api/ FastAPI
+  ├─ /api/v1/analyze: uploaded-video JSON result
+  ├─ /api/v1/analyze/stream: uploaded-video SSE result
+  ├─ /api/v1/rtsp/sessions: RTSP session create/list/get/delete
+  ├─ /api/v1/rtsp/sessions/{id}/preview.jpg
+  ├─ /api/v1/rtsp/sessions/{id}/preview.mjpeg
+  └─ /api/v1/rtsp/sessions/{id}/events: WebSocket events
+
+insightcap/ core engine
+  ├─ VideoReader / LiveStreamReader: OpenCV file and RTSP reads
+  ├─ FrameSampler: sampled frames from uploaded videos
+  ├─ PromptBuilder: frame, live frame, and summary prompts
+  ├─ CaptionPipeline: uploaded-video orchestration
+  └─ CaptionBackend: vLLM
 ```
 
-### SSE Event Flow (`/analyze/stream`)
+---
+
+## Project Structure
 
 ```
-1. init    → {total_frames, video_fps, duration_seconds}   ← sent before pipeline starts
-2. frame   → {index, caption, timestamp_seconds}           ← one per processed frame
-3. summary → {caption}                                     ← aggregated narrative
-4. done    → {frame_count, duration_seconds, device_used, model_id, video_fps, frame_interval}
-```
-
-The `init` event is emitted immediately after reading video metadata, before any inference begins. The frontend uses this to display the correct total and trigger video autoplay.
-
-### Auto-Sampling Strategy
-
-Frame sampling is fully automatic — no user configuration required:
-
-```python
-frame_interval = max(1, round(video_fps))   # ~1 frame per second
-max_frames     = 20                          # hard cap
-
-# Pipeline stops early if wall-clock time exceeds video duration:
-deadline = time.monotonic() + duration_seconds
-```
-
-For a 30fps video: `frame_interval=30` → captures frames at 0s, 1s, 2s, ...
-
-### Temporal Context in Prompts
-
-Each frame is captioned with the last 3 captions as context:
-
-```
-Previous frame descriptions:
-Frame 1: ...
-Frame 2: ...
-Frame 3: ...
-
-Now describe frame 4 of 8, continuing the narrative. [frame_prompt]
-```
-
-This produces coherent video-level narrative rather than isolated frame descriptions.
-
-### Directory Structure
-
-```
-video-captioning/
-├── api/                          # Layer 2: FastAPI endpoints
-│   ├── main.py                   # App initialization & CORS
-│   ├── routes/
-│   │   └── analyze.py            # /analyze endpoints
-│   ├── service.py                # Async bridge to pipeline
-│   └── schemas.py                # Pydantic request/response models
+InsightCap/
+├── api/                              # FastAPI layer
+│   ├── main.py                       # App setup, CORS, routers, health, RTSP shutdown hook
+│   ├── service.py                    # Async bridge to CaptionPipeline for uploaded videos
+│   ├── schemas.py                    # Uploaded-video Pydantic schemas
+│   ├── rtsp_service.py               # RTSP session workers, reconnect, preview, caption events
+│   ├── rtsp_schemas.py               # RTSP request/response/event schemas
+│   └── routes/
+│       ├── analyze.py                # /api/v1/analyze and /api/v1/analyze/stream
+│       └── rtsp.py                   # RTSP sessions, preview.jpg, preview.mjpeg, WebSocket events
 │
-├── insightcap/                   # Layer 1: Core engine
+├── insightcap/                       # Core captioning engine
+│   ├── pipeline.py                   # Uploaded-video orchestration and summary generation
+│   ├── config.py                     # Sampler and inference config; default backend: vllm
+│   ├── device.py                     # MPS/CUDA/CPU detection
+│   ├── cli.py                        # Local CLI entrypoint
 │   ├── video/
-│   │   ├── reader.py             # OpenCV video reading
-│   │   └── sampler.py            # Frame extraction
+│   │   ├── reader.py                 # OpenCV local video reader
+│   │   ├── live_reader.py            # OpenCV RTSP/live stream reader
+│   │   └── sampler.py                # Frame sampling for uploaded videos
 │   ├── inference/
-│   │   ├── base.py               # CaptionBackend abstract class
-│   │   ├── ollama_backend.py     # Ollama implementation
-│   │   └── factory.py            # Backend factory
-│   ├── prompt/
-│   │   └── builder.py            # Prompt construction with temporal context
-│   ├── pipeline.py               # Main orchestration + time limit
-│   ├── config.py                 # Config dataclasses
-│   ├── device.py                 # Device detection
-│   └── cli.py                    # CLI entrypoint
+│   │   ├── base.py                   # CaptionBackend interface
+│   │   ├── factory.py                # Backend selector: vllm
+│   │   ├── vllm_backend.py           # OpenAI-compatible vLLM backend
+│   └── prompt/
+│       └── builder.py                # Frame, live frame, and summary prompt builder
 │
-├── web/                          # Layer 3: Streamlit interface
-│   ├── app.py                    # Main Streamlit app
+├── web/                              # Streamlit interface
+│   ├── app.py                        # Mode selector, video mode, RTSP mode, layout, styling
 │   ├── components/
-│   │   ├── sidebar.py            # Upload & model selection
-│   │   ├── streaming_panel.py    # Video player + status
-│   │   └── results_panel.py      # Live captions + final summary
+│   │   ├── sidebar.py                # Video upload controls and RTSP session controls
+│   │   ├── streaming_panel.py        # Uploaded-video stream/status panel
+│   │   ├── results_panel.py          # Uploaded-video captions, summary, export UI
+│   │   └── rtsp_panel.py             # RTSP MJPEG preview and WebSocket captions panel
 │   ├── utils/
-│   │   ├── api_client.py         # HTTP client for API
-│   │   └── state_manager.py      # Session state management
+│   │   ├── api_client.py             # FastAPI HTTP client
+│   │   ├── state_manager.py          # Streamlit session-state helpers
+│   │   └── prompts.py                # Prompt presets/helpers
 │   └── .streamlit/
-│       └── config.toml           # Theme configuration
+│       └── config.toml               # Streamlit theme config
 │
-├── PRD.md                        # Product Requirements Document
-├── README.md                     # Project documentation
-└── AGENT.md                      # This file
+├── tests/
+│   └── test_vllm_backend.py          # Unit tests for vLLM backend and backend factory
+│
+├── test/                             # Local notes/log artifacts
+├── docker-compose.yml                # Local vLLM OpenAI server on port 8060
+├── requirements.txt                  # Python dependencies
+├── README.md                         # User-facing project documentation
+├── API.md                            # API documentation
+├── ARCHITECTURE.md                   # Architecture documentation
+└── AGENT.md                          # Agent working context and rules
 ```
 
 ---
 
-## Current Development Status
+## Current State - ALWAYS UPDATE this Section based on Changes
 
-### Completed Phases
+### Being Developed
 
-#### Phase 1: Core Engine ✅
-- Video reading via OpenCV
-- Frame sampling (interval-based, auto-computed)
-- Ollama backend integration with Qwen3.5:0.8B
-- Temporal context prompt engineering
-- Time-limited pipeline (stops at video duration)
-- CLI interface
-- Device detection (MPS/CUDA/CPU fallback)
+- vLLM-first inference service development.
+- RTSP live monitoring flow in API and Streamlit.
+- Browser-side RTSP live captions through WebSocket.
+- MJPEG preview bridge for RTSP stream display.
 
-#### Phase 2: API Layer ✅
-- FastAPI server on port 6060
-- POST /api/v1/analyze — Full JSON response
-- POST /api/v1/analyze/stream — SSE streaming with `init` pre-event
-- GET /health — Health check endpoint
-- Multipart file upload support
-- Async service bridge with auto-sampling
+### Current Problems
 
-#### Phase 3: Web App ✅
-- Industrial dark theme Streamlit interface (JetBrains Mono + Space Grotesk)
-- Dual-panel layout: LIVE_STREAM (left) + LIVE_CAPTIONS (right)
-- Real-time streaming captions via `st.empty()` placeholder pattern
-- Video autoplay + controls locked during analysis
-- Initialization phase before video starts (pre-computes frame count)
-- JSON export functionality
-- Metadata display (frames, duration, device, model)
+- RTSP processing uses one worker thread/session and synchronous frame inference; concurrency is limited.
+- API has no authentication, authorization, or rate limiting.
+- Uploaded-video and RTSP inference depend on a running local vLLM OpenAI-compatible server.
+- vLLM runtime smoke test is pending: `docker compose up -d vllm` starts downloading the image, but the official image has multi-GB layers and was stopped before completion.
+- Uploaded-video SSE sync is duration-based, not frame-perfect.
+- Several docs and source files are modified in the working tree; keep this section updated after every meaningful code change.
 
-### Known Limitations
+### Checkpoint
 
-1. **Sequential Processing**: Single Ollama call per frame (no concurrency)
-2. **Sync Approximation**: Video and captions end together via time limit, not frame-perfect sync
-3. **Memory Pressure**: Concurrent uploads may cause memory issues
-4. **No Authentication**: API is open without auth/rate limiting
-5. **Ollama Dependency**: Requires Ollama server running locally
-
-### Dependencies
-
-```
-# Core
-opencv-python>=4.8.0
-ollama>=0.4.0
-Pillow>=10.0.0
-click>=8.1.0
-numpy>=1.24.0
-torch>=2.2.0
-
-# API
-fastapi>=0.111.0
-uvicorn[standard]>=0.29.0
-python-multipart>=0.0.9
-
-# Web
-streamlit>=1.28.0
-requests>=2.31.0
-```
-
-### Running the Application
-
-```bash
-# Prerequisite: Start Ollama server
-ollama serve
-ollama pull qwen3.5:0.8b
-
-# Terminal 1: Start API (Layer 2)
-uvicorn api.main:app --reload --port 6060
-
-# Terminal 2: Start Web App (Layer 3)
-cd web && streamlit run app.py
-
-# Terminal 3: CLI Usage (Layer 1)
-python -m insightcap.cli video.mp4 --verbose
-```
-
-### Test Commands
-
-```bash
-# Health check
-curl http://localhost:6060/health
-
-# Analyze video (auto-sampling, no fps/frames config needed)
-curl -X POST http://localhost:6060/api/v1/analyze \
-  -F "file=@video.mp4" -F "model=qwen3.5:0.8b"
-
-# Streaming SSE
-curl -X POST http://localhost:6060/api/v1/analyze/stream \
-  -F "file=@video.mp4" --no-buffer
-```
-
----
-
-## Development Guidelines
-
-### Code Conventions
-
-1. **Language**: English for code, docs, API contracts
-2. **Type Hints**: Use Python type hints throughout
-3. **Docstrings**: Google-style docstrings for classes/functions
-4. **Imports**: Use `from __future__ import annotations` for forward refs
-5. **Error Handling**: Raise specific exceptions with descriptive messages
-
-### Architecture Principles
-
-1. **Separation of Concerns**: Each layer handles its domain
-2. **Async Bridge**: API layer uses `asyncio.to_thread` for sync engine
-3. **Streaming First**: Prefer SSE/streaming for real-time updates
-4. **Config Injection**: Pass configs as parameters, not globals
-5. **Auto-compute over user config**: Sampling params derived from video metadata
-
-### Device Strategy
-
-```python
-# Priority: MPS (Apple Silicon) > CUDA (NVIDIA) > CPU
-device = detect_device()  # Returns: 'mps', 'cuda', or 'cpu'
-```
-
-### Real-Time Streaming Pattern (Streamlit)
-
-```python
-# st.empty() placeholder updated per-frame — no st.rerun() mid-stream
-with col_right:
-    with st.container(border=True):
-        captions_placeholder = st.empty()
-
-for event in api_client.analyze_stream(...):
-    if "total_frames" in event:          # init: start video
-        render_stream_analyzing_start()
-    elif "index" in event:               # frame: update captions
-        with captions_placeholder.container():
-            render_live_captions_streaming(frame_captions)
-```
-
----
-
-## Future Roadmap
-
-### Phase 4: Production Hardening (Planned)
-- Docker containerization
-- Queue-based processing
-- Model hot-swapping
-- Performance monitoring
-
-### Phase 5: Advanced Features (Planned)
-- WebSocket live captioning from camera
-- Batch video processing
-- User authentication
-- PostgreSQL result storage
+- Default `InferenceConfig.backend` is `vllm`.
+- Default `InferenceConfig.vllm_base_url` is `http://localhost:8060/v1`.
+- `VLLMBackend` exists and is covered by `tests/test_vllm_backend.py`.
+- `docker-compose.yml` serves vLLM on host/container port `8060`.
+- `web/app.py` header now displays `VLLM_BACKEND`.
+- FastAPI includes analyze and RTSP routers.
+- RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, and WebSocket events.
+- Streamlit includes a mode selector with video mode and RTSP mode.
+- `AGENT.md`, `README.md`, `API.md`, `ARCHITECTURE.md`, API files, inference files, web sidebar, requirements, tests, and docker compose currently show local git changes.
 
 ---
 
 ## Contact & Resources
 
-- **Model**: Qwen3.5:0.8B via Ollama
-- **API Port**: 6060
-- **Web Port**: 8501
-- **Development Machine**: Apple Silicon M4
-- **PRD Reference**: PRD.md
+- **Current Backend**: vLLM OpenAI-compatible server
+- **Served Model Name**: `qwen3.5:0.8b`
+- **Model Source**: `Qwen/Qwen3.5-0.8B`
+- **vLLM Base URL**: `http://localhost:8060/v1`
+- **vLLM Docker Service**: `insightcap-vllm`
+- **API Port**: `6060`
+- **Web Port**: `8501`
+- **Main API Docs**: `API.md`
+- **Architecture Docs**: `ARCHITECTURE.md`
+- **Project Docs**: `README.md`
+
+===========================
+
+# RULES - DO NOT CHANGE or EDIT this Section
+
+## Important Notes - Project RULES
+
+- Always use relevant skills to help with tasks.
+- Always ask the user if there are any plans or discussions that need to be validated.
+- Always provide a summary after finishing a task.
+- Always update `README.md` whenever there are changes to key features and the app's workflow. Please note the section commands that must not be changed.
+- Commit every function change so you can roll back and view the code history in case of a malfunction or a failed change.
+- Do not re-read files that have already been read in this session unless necessary.
+- Minimize non-essential tool calls.
+- Save every plan or specification to the `docs/plans/` folder so you can track which plans have been created or are currently being created. This allows you to resume the session if the AI agent's token expires. USE `Superpowers` skill to provide the plan.
+
+===========================
+
+# AGENTS.md — DO NOT EDIT BELOW
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

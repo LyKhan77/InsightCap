@@ -9,8 +9,7 @@ import numpy as np
 class CaptionBackend(ABC):
     """Abstract base class for caption inference backends.
 
-    Phase 1 uses OllamaBackend.
-    Future phases can add VLLMBackend for Linux/NVIDIA production.
+    vLLM is the supported backend for current development.
     """
 
     @abstractmethod

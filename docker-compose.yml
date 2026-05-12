@@ -1,0 +1,28 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: insightcap-vllm
+    ipc: host
+    ports:
+      - "8060:8060"
+    gpus: all
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      NVIDIA_VISIBLE_DEVICES: ${VLLM_GPU_DEVICE:-2}
+    volumes:
+      - ${HF_HOME:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+    command:
+      - --model
+      - Qwen/Qwen3.5-0.8B
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8060"
+      - --tensor-parallel-size
+      - "1"
+      - --max-model-len
+      - "32768"
+      - --served-model-name
+      - qwen3.5:0.8b
+      - --limit-mm-per-prompt.image
+      - "1"

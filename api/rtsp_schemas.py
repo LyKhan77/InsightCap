@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class RTSPSessionCreateRequest(BaseModel):
     rtsp_url: str = Field(..., description="RTSP camera URL.")
-    model: str = Field("qwen3.5:0.8b", description="Ollama model name.")
+    model: str = Field("qwen3.5:0.8b", description="vLLM served model name.")
     sample_every_seconds: float = Field(
         1.0,
         gt=0,
