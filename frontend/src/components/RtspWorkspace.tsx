@@ -79,7 +79,7 @@ export function RtspWorkspace({
                 Source
               </div>
               <p className="mt-2 break-all text-sm leading-6 text-ink">
-                {source || "Enter an RTSP URL to start a local monitoring simulation."}
+                {source || "Enter an RTSP URL to start backend monitoring."}
               </p>
             </div>
           </div>

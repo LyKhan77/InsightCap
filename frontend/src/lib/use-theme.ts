@@ -1,24 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import type { Theme } from "./types";
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    const saved = window.localStorage.getItem("insightcap-theme");
-    return saved === "light" || saved === "dark" ? saved : "light";
-  });
+const THEME_STORAGE_KEY = "insightcap-theme";
+const THEME_CHANGE_EVENT = "insightcap-theme-change";
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+export function useTheme() {
+  const theme = useSyncExternalStore(subscribeTheme, getClientTheme, getServerTheme);
 
   function setTheme(next: Theme) {
-    setThemeState(next);
-    window.localStorage.setItem("insightcap-theme", next);
+    window.localStorage.setItem(THEME_STORAGE_KEY, next);
     document.documentElement.dataset.theme = next;
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }
 
   return { theme, setTheme };
+}
+
+function getServerTheme(): Theme {
+  return "light";
+}
+
+function getClientTheme(): Theme {
+  const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const theme = saved === "light" || saved === "dark" ? saved : "light";
+  document.documentElement.dataset.theme = theme;
+  return theme;
+}
+
+function subscribeTheme(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  };
 }

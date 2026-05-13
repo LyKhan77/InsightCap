@@ -30,7 +30,7 @@ export function CaptionsPanel({
       <div className="flex-1 overflow-y-auto px-4 py-3" style={{ maxHeight: "calc(100vh - 340px)", minHeight: "320px" }}>
         {captions.length === 0 ? (
           <div className="flex min-h-[240px] items-center justify-center rounded-md border border-dashed border-hairline bg-canvas-soft text-center text-sm leading-6 text-ink-muted">
-            Captions will appear here when the local simulation starts.
+            Captions will appear here when the backend stream starts.
           </div>
         ) : (
           <div className="grid gap-2">
