@@ -34,7 +34,12 @@ InsightCap is a Python application with three layers:
 ## Architecture
 
 ```
-web/ Streamlit UI
+frontend/ Next.js production UI
+  ├─ / mode switch: choose Video or RTSP
+  ├─ /video: upload analysis, live stream + captions panels
+  └─ /rtsp: live monitoring, MJPEG preview + captions panels
+
+web/ Streamlit UI (legacy)
   ├─ video mode: upload local video, stream captions over SSE
   └─ rtsp mode: start camera session, show MJPEG preview + WebSocket captions
 
@@ -60,6 +65,40 @@ insightcap/ core engine
 
 ```
 InsightCap/
+├── frontend/                        # Next.js production UI
+│   ├── src/app/
+│   │   ├── page.tsx                 # / — Mode Switch Page (hero + cards)
+│   │   ├── video/page.tsx           # /video — Video Mode page
+│   │   ├── rtsp/page.tsx            # /rtsp — RTSP Mode page
+│   │   ├── layout.tsx               # Root layout (fonts, metadata)
+│   │   └── globals.css              # CSS variables (light/dark themes)
+│   ├── src/components/
+│   │   ├── ModeSwitchPage.tsx       # Hero + Video/RTSP option cards
+│   │   ├── PageHeader.tsx           # Shared header (logo, mode label, theme, drawer trigger)
+│   │   ├── ControlDrawer.tsx        # Slide-in drawer from right + floating trigger
+│   │   ├── VideoControls.tsx        # Video controls content (for drawer)
+│   │   ├── VideoModePage.tsx        # Video page orchestrator
+│   │   ├── VideoWorkspace.tsx       # Video live stream + captions panels
+│   │   ├── RtspControls.tsx         # RTSP controls content (for drawer)
+│   │   ├── RtspModePage.tsx         # RTSP page orchestrator
+│   │   ├── RtspWorkspace.tsx        # RTSP live stream + captions panels
+│   │   ├── CaptionsPanel.tsx        # Live captions display (shared)
+│   │   ├── MetadataStrip.tsx        # Metadata bar (shared)
+│   │   ├── Button.tsx               # Button component variants
+│   │   ├── StatusBadge.tsx          # Status indicator badges
+│   │   └── PromptEditor.tsx         # Prompt textarea editor
+│   ├── src/lib/
+│   │   ├── types.ts                 # TypeScript types
+│   │   ├── use-theme.ts             # Theme hook (localStorage)
+│   │   ├── dummy-data.ts            # Mock caption data
+│   │   └── export.ts                # JSON export utility
+│   ├── src/data/
+│   │   └── prompts.ts               # Video and RTSP prompt presets
+│   ├── tests/
+│   │   └── insightcap.spec.ts       # Playwright e2e tests
+│   ├── tailwind.config.ts           # Tailwind + design tokens
+│   └── package.json                 # Webpack dev server on port 3060
+│
 ├── api/                              # FastAPI layer
 │   ├── main.py                       # App setup, CORS, routers, health, RTSP shutdown hook
 │   ├── service.py                    # Async bridge to CaptionPipeline for uploaded videos
@@ -112,16 +151,15 @@ InsightCap/
 └── AGENT.md                          # Agent working context and rules
 ```
 
----
+===
 
 ## Current State - ALWAYS UPDATE this Section based on Changes
 
 ### Being Developed
 
+- Frontend production UI redesign in `frontend/` (Next.js multi-page architecture).
 - vLLM-first inference service development.
 - RTSP live monitoring flow in API and Streamlit.
-- Browser-side RTSP live captions through WebSocket.
-- MJPEG preview bridge for RTSP stream display.
 
 ### Current Problems
 
@@ -130,19 +168,28 @@ InsightCap/
 - Uploaded-video and RTSP inference depend on a running local vLLM OpenAI-compatible server.
 - vLLM runtime smoke test is pending: `docker compose up -d vllm` starts downloading the image, but the official image has multi-GB layers and was stopped before completion.
 - Uploaded-video SSE sync is duration-based, not frame-perfect.
-- Several docs and source files are modified in the working tree; keep this section updated after every meaningful code change.
+- Dev server uses Webpack instead of Turbopack due to system `fs.inotify.max_user_watches` limit (65536); Turbopack crashes with FATAL panic.
 
 ### Checkpoint
 
+- **Frontend** (`frontend/`): multi-page Next.js app with 3 routes.
+  - `/` — Mode Switch Page: hero + two cards (Video / RTSP).
+  - `/video` — Video Mode: full-width Live Stream + Live Captions panels, controls in floating drawer.
+  - `/rtsp` — RTSP Mode: same layout, must stop monitoring before navigating back.
+  - No mode switch in header; "Change Mode" button navigates to `/`.
+  - Floating settings drawer (gear icon) slides in from right with controls.
+  - Light/dark theme persisted via localStorage (`useTheme` hook).
+  - DESIGN.md emerald green style (`#3ecf8e` primary, Inter font, white/near-black canvas).
+  - Dev server: Webpack (`--webpack` flag), port 3060.
+  - All mock data, no BE integration yet.
+  - Playwright e2e tests pass (6/6) in `frontend/tests/insightcap.spec.ts`.
 - Default `InferenceConfig.backend` is `vllm`.
 - Default `InferenceConfig.vllm_base_url` is `http://localhost:8060/v1`.
 - `VLLMBackend` exists and is covered by `tests/test_vllm_backend.py`.
 - `docker-compose.yml` serves vLLM on host/container port `8060`.
-- `web/app.py` header now displays `VLLM_BACKEND`.
 - FastAPI includes analyze and RTSP routers.
 - RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, and WebSocket events.
-- Streamlit includes a mode selector with video mode and RTSP mode.
-- `AGENT.md`, `README.md`, `API.md`, `ARCHITECTURE.md`, API files, inference files, web sidebar, requirements, tests, and docker compose currently show local git changes.
+- Streamlit (`web/`) retained as legacy interface during transition.
 
 ---
 
@@ -154,10 +201,12 @@ InsightCap/
 - **vLLM Base URL**: `http://localhost:8060/v1`
 - **vLLM Docker Service**: `insightcap-vllm`
 - **API Port**: `6060`
-- **Web Port**: `8501`
+- **Streamlit Port**: `8501`
+- **Frontend Port**: `3060`
 - **Main API Docs**: `API.md`
 - **Architecture Docs**: `ARCHITECTURE.md`
 - **Project Docs**: `README.md`
+- **Design System**: `DESIGN.md`
 
 ===========================
 
@@ -169,7 +218,7 @@ InsightCap/
 - Always ask the user if there are any plans or discussions that need to be validated.
 - Always provide a summary after finishing a task.
 - Always update `README.md` whenever there are changes to key features and the app's workflow. Please note the section commands that must not be changed.
-- Commit every function change so you can roll back and view the code history in case of a malfunction or a failed change.
+- Commit every function change so you can roll back and view the code history in case of a malfunction or a failed change. Also UPDATE the `.gitignore` file whenever a new file is added that needs to be excluded before committing.
 - Do not re-read files that have already been read in this session unless necessary.
 - Minimize non-essential tool calls.
 - Save every plan or specification to the `docs/plans/` folder so you can track which plans have been created or are currently being created. This allows you to resume the session if the AI agent's token expires. USE `Superpowers` skill to provide the plan.
