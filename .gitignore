@@ -98,3 +98,10 @@ conductor/
 
 # mypy
 .mypy_cache/
+
+# Node / Next.js frontend
+node_modules/
+.next/
+out/
+playwright-report/
+test-results/

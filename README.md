@@ -54,12 +54,26 @@ uvicorn api.main:app --reload --port 6060
 # Confirm API sees vLLM:
 curl http://localhost:6060/health
 
-# Terminal 3: Start Web App
+# Terminal 3: Start Streamlit Web App (legacy)
 source env/bin/activate
 cd web && streamlit run app.py
 ```
 
-Access the web app at **http://localhost:8501**
+Access the legacy Streamlit app at **http://localhost:8501**
+
+### Production Frontend Prototype
+
+The redesigned frontend lives in `frontend/`. This is currently a Next.js +
+TypeScript dummy prototype for validating the production UI before backend
+integration. It does not call FastAPI, SSE, WebSocket, or MJPEG endpoints yet.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Access the production frontend prototype at **http://localhost:3000**
 
 For background mode after the vLLM image is fully downloaded:
 
@@ -71,7 +85,7 @@ docker compose up -d vllm
 source env/bin/activate
 uvicorn api.main:app --reload --port 6060
 
-# Terminal 3: Web
+# Terminal 3: Streamlit Web (legacy)
 source env/bin/activate
 cd web && streamlit run app.py
 ```
@@ -80,7 +94,16 @@ cd web && streamlit run app.py
 
 ## Web Interface
 
-Industrial dark-themed dual-panel UI:
+The production frontend prototype in `frontend/` is the new target UI. It uses
+a white, product-focused design system from `DESIGN.md` and mirrors the
+Streamlit workflows with local dummy state:
+
+- **Select Mode Page**: choose `Video Analysis` or `RTSP Monitoring`
+- **Left control rail**: upload/source configuration, model, prompt presets, and custom prompts
+- **Main workspace**: preview panel, live captions panel, summary/export, and metadata strip
+
+The existing `web/` Streamlit interface is retained as a legacy app during the
+transition:
 
 - **Select Mode Page**: choose `VIDEO` or `RTSP`
 - **Left panel — LIVE_STREAM**: Video player (autoplays and locks during analysis)
@@ -140,10 +163,23 @@ python -m insightcap.cli path/to/video.mp4 --output result.json
 
 ---
 
+## Frontend Checks
+
+```bash
+cd frontend
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+If Playwright browsers are not installed on the remote machine yet, run
+`npx playwright install chromium` once from `frontend/`.
+
 ## Known Limitations
 
 - vLLM must be running before analysis requests are sent (`docker compose up vllm`)
 - Sequential inference — one vLLM chat-completion call per frame, no frame batching yet
 - Sync is time-based approximation, not frame-perfect
-- The current Streamlit web app still targets uploaded video files; RTSP mode is exposed through the separate API endpoints
+- The production frontend is currently dummy/local-state only; backend integration is a later phase
+- The Streamlit web app remains available as legacy during transition
 - No authentication or rate limiting on the API
