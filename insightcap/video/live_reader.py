@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import cv2
 import numpy as np
 
@@ -19,18 +21,45 @@ class LiveStreamReader:
         self._cap: cv2.VideoCapture | None = None
 
     def open(self) -> None:
-        self._cap = cv2.VideoCapture(self.url)
-        self._apply_timeouts()
+        self.close()
+        self._prepare_rtsp_transport()
+        self._cap = self._open_capture()
         if not self._cap.isOpened():
             raise IOError(f"Cannot open live stream: {self.url}")
 
-    def _apply_timeouts(self) -> None:
-        if self._cap is None:
+    def _open_capture(self) -> cv2.VideoCapture:
+        attempts = []
+        params = self._capture_params()
+        if params:
+            attempts.append((self.url, cv2.CAP_FFMPEG, params))
+        attempts.append((self.url, cv2.CAP_FFMPEG))
+        attempts.append((self.url,))
+
+        last_capture: cv2.VideoCapture | None = None
+        for args in attempts:
+            capture = cv2.VideoCapture(*args)
+            if capture.isOpened():
+                return capture
+            capture.release()
+            last_capture = capture
+
+        return last_capture or cv2.VideoCapture()
+
+    def _prepare_rtsp_transport(self) -> None:
+        if not self.url.lower().startswith("rtsp://"):
             return
+        os.environ.setdefault(
+            "OPENCV_FFMPEG_CAPTURE_OPTIONS",
+            "rtsp_transport;tcp|stimeout;10000000|max_delay;500000",
+        )
+
+    def _capture_params(self) -> list[int]:
+        params: list[int] = []
         if hasattr(cv2, "CAP_PROP_OPEN_TIMEOUT_MSEC"):
-            self._cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, float(self.open_timeout_ms))
+            params.extend([cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, int(self.open_timeout_ms)])
         if hasattr(cv2, "CAP_PROP_READ_TIMEOUT_MSEC"):
-            self._cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, float(self.read_timeout_ms))
+            params.extend([cv2.CAP_PROP_READ_TIMEOUT_MSEC, int(self.read_timeout_ms)])
+        return params
 
     def close(self) -> None:
         if self._cap is not None:

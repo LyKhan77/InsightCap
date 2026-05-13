@@ -36,6 +36,10 @@ def _mask_rtsp_url(url: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
 
 
+def _mask_error_message(message: str, raw_url: str, safe_url: str) -> str:
+    return message.replace(raw_url, safe_url)
+
+
 def _default_session_name(url: str) -> str:
     host = urlsplit(url).hostname or "rtsp-camera"
     return host
@@ -53,6 +57,7 @@ class RtspSession:
     _PREVIEW_INTERVAL_SECONDS = 0.1
     _PREVIEW_MAX_WIDTH = 960
     _PREVIEW_JPEG_QUALITY = 70
+    _MAX_CONSECUTIVE_READ_FAILURES = 5
 
     def __init__(self, session_id: str, request: RTSPSessionCreateRequest) -> None:
         self.session_id = session_id
@@ -310,13 +315,14 @@ class RtspSession:
             except Exception as exc:
                 if self._stop_event.is_set():
                     break
+                error_message = _mask_error_message(str(exc), self.rtsp_url, self.source)
                 with self._lock:
                     self.reconnect_count += 1
-                    self.last_error = str(exc)
-                self._set_status("connecting", error=str(exc))
+                    self.last_error = error_message
+                self._set_status("connecting", error=error_message)
                 self._emit(
                     "warning",
-                    message=str(exc),
+                    message=error_message,
                     reconnect_count=self.reconnect_count,
                 )
                 time.sleep(self._RECONNECT_DELAY_SECONDS)
@@ -327,12 +333,21 @@ class RtspSession:
     def _capture_frames(self, reader: LiveStreamReader) -> None:
         """Continuously pull the newest frame so preview stays responsive."""
         last_preview_at = 0.0
+        consecutive_failures = 0
         try:
             while not self._stop_event.is_set():
                 frame = reader.read()
                 if frame is None:
-                    raise IOError("Live stream frame read failed.")
+                    consecutive_failures += 1
+                    if consecutive_failures >= self._MAX_CONSECUTIVE_READ_FAILURES:
+                        raise IOError(
+                            "Live stream frame read failed after "
+                            f"{consecutive_failures} consecutive reads."
+                        )
+                    time.sleep(self._IDLE_WAIT_SECONDS)
+                    continue
 
+                consecutive_failures = 0
                 self._set_latest_frame(frame)
 
                 now = time.monotonic()
