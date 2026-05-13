@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { mapRtspStatus, normalizeRtspEvent } from "@/lib/rtsp-events";
 import type { CaptionRow, RtspMetadata, RtspStatus, Theme } from "@/lib/types";
+import { AppFooter } from "./AppFooter";
 import { ControlDrawer } from "./ControlDrawer";
 import { PageHeader } from "./PageHeader";
 import { RtspControls } from "./RtspControls";
@@ -264,9 +265,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
         />
       </section>
 
-      <footer className="mx-auto w-full max-w-[1440px] px-5 pb-6 font-mono text-xs text-ink-muted md:px-8">
-        Connected to FastAPI backend at port 6060.
-      </footer>
+      <AppFooter />
     </main>
   );
 }

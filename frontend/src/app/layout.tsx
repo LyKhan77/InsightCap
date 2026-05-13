@@ -15,6 +15,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "InsightCap — Dashboard Live Captioning",
   description: "Video and RTSP captioning system with live monitoring.",
+  icons: {
+    icon: "/Logo-InsightCap.png",
+    shortcut: "/Logo-InsightCap.png",
+    apple: "/Logo-InsightCap.png",
+  },
 };
 
 export default function RootLayout({

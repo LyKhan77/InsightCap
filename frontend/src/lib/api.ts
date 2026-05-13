@@ -50,6 +50,25 @@ export type RtspEvent = {
   data: Record<string, unknown>;
 };
 
+export type HealthResponse = {
+  status: string;
+  device: string;
+  backend: string;
+  vllm: {
+    status: string;
+    base_url: string;
+    error?: string;
+  };
+};
+
+export async function getHealth(): Promise<HealthResponse> {
+  const response = await fetch(apiUrl("/health"), { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+  return response.json();
+}
+
 export function analyzeStreamUrl() {
   return apiUrl("/api/v1/analyze/stream");
 }

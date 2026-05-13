@@ -1,3 +1,7 @@
+"use client";
+
+import { ArrowDownToLine } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { CaptionRow } from "@/lib/types";
 
 type CaptionsPanelProps = {
@@ -13,6 +17,30 @@ export function CaptionsPanel({
   streaming = false,
   finalCaption,
 }: CaptionsPanelProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [stickToLatest, setStickToLatest] = useState(true);
+
+  useEffect(() => {
+    if (!stickToLatest) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [captions.length, finalCaption, stickToLatest]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setStickToLatest(distanceFromBottom < 48);
+  }
+
+  function scrollToLatest() {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    setStickToLatest(true);
+  }
+
   return (
     <section className="flex flex-col rounded-lg border border-hairline bg-canvas shadow-sm">
       <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
@@ -27,7 +55,13 @@ export function CaptionsPanel({
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3" style={{ maxHeight: "calc(100vh - 340px)", minHeight: "320px" }}>
+      <div className="relative">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto px-4 py-3"
+          style={{ maxHeight: "calc(100vh - 340px)", minHeight: "320px" }}
+        >
         {captions.length === 0 ? (
           <div className="flex min-h-[240px] items-center justify-center rounded-md border border-dashed border-hairline bg-canvas-soft text-center text-sm leading-6 text-ink-muted">
             Captions will appear here when the backend stream starts.
@@ -62,6 +96,18 @@ export function CaptionsPanel({
             ))}
           </div>
         )}
+        </div>
+
+        {!stickToLatest && captions.length > 0 ? (
+          <button
+            type="button"
+            onClick={scrollToLatest}
+            className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-md border border-primary-deep bg-canvas px-3 py-2 text-xs font-medium text-primary-deep shadow-sm transition-colors duration-200 hover:bg-primary hover:text-on-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <ArrowDownToLine className="size-4" aria-hidden="true" />
+            Latest frame
+          </button>
+        ) : null}
       </div>
 
       {streaming ? (

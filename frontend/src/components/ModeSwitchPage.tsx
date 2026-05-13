@@ -3,6 +3,7 @@
 import { Camera, FileVideo2, Moon, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Theme } from "@/lib/types";
+import { AppFooter } from "./AppFooter";
 
 type ModeSwitchPageProps = {
   theme: Theme;
@@ -98,10 +99,7 @@ export function ModeSwitchPage({ theme, onThemeChange }: ModeSwitchPageProps) {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="mx-auto max-w-[1440px] px-5 pb-8 font-mono text-xs text-ink-muted md:px-8">
-        FastAPI backend integration active.
-      </footer>
+      <AppFooter />
     </main>
   );
 }

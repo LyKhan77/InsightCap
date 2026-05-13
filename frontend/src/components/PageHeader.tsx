@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import { getHealth } from "@/lib/api";
 import type { Theme } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
 
@@ -20,6 +22,32 @@ export function PageHeader({
   controlsTrigger,
 }: PageHeaderProps) {
   const nextTheme = theme === "light" ? "dark" : "light";
+  const [apiOnline, setApiOnline] = useState(false);
+  const [vllmOnline, setVllmOnline] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshHealth() {
+      try {
+        const health = await getHealth();
+        if (cancelled) return;
+        setApiOnline(health.status === "ok");
+        setVllmOnline(health.vllm.status === "ok");
+      } catch {
+        if (cancelled) return;
+        setApiOnline(false);
+        setVllmOnline(false);
+      }
+    }
+
+    refreshHealth();
+    const interval = window.setInterval(refreshHealth, 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   return (
     <header className="border-b border-hairline bg-canvas">
@@ -46,8 +74,14 @@ export function PageHeader({
         </div>
 
         <div className="flex items-center gap-3">
-          <StatusBadge label="FastAPI connected" tone="online" />
-          <StatusBadge label="vLLM backend" tone="idle" />
+          <StatusBadge
+            label={apiOnline ? "FastAPI connected" : "FastAPI offline"}
+            tone={apiOnline ? "online" : "warning"}
+          />
+          <StatusBadge
+            label={vllmOnline ? "vLLM online" : "vLLM offline"}
+            tone={vllmOnline ? "online" : "warning"}
+          />
 
           <button
             type="button"

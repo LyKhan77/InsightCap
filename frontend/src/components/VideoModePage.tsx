@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { VIDEO_PROMPT_PRESETS } from "@/data/prompts";
 import type { CaptionRow, Theme, VideoMetadata, VideoStatus } from "@/lib/types";
 import { streamVideoAnalysis } from "@/lib/video-stream";
+import { AppFooter } from "./AppFooter";
 import { ControlDrawer } from "./ControlDrawer";
 import { PageHeader } from "./PageHeader";
 import { VideoControls } from "./VideoControls";
@@ -204,9 +205,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
         />
       </section>
 
-      <footer className="mx-auto w-full max-w-[1440px] px-5 pb-6 font-mono text-xs text-ink-muted md:px-8">
-        Connected to FastAPI backend at port 6060.
-      </footer>
+      <AppFooter />
     </main>
   );
 }
