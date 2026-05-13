@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from insightcap.config import InferenceConfig
-from insightcap.inference.factory import get_backend
-from insightcap.inference.vllm_backend import VLLMBackend
+from backend.core.config import InferenceConfig
+from backend.core.inference.factory import get_backend
+from backend.core.inference.vllm_backend import VLLMBackend
 
 
 class FakeCompletions:

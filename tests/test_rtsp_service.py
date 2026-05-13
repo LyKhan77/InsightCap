@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from api.rtsp_service import _mask_error_message, _mask_rtsp_url
+from backend.app.services.rtsp.utils import _mask_error_message, _mask_rtsp_url
 
 
 class RtspServiceTest(unittest.TestCase):

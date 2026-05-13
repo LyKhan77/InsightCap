@@ -4,8 +4,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from insightcap.video import live_reader
-from insightcap.video.live_reader import LiveStreamReader
+from backend.core.video import live_reader
+from backend.core.video.live_reader import LiveStreamReader
 
 
 class LiveStreamReaderTest(unittest.TestCase):
