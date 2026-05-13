@@ -9,9 +9,9 @@ type StatusBadgeProps = {
 };
 
 const toneClass: Record<StatusTone, string> = {
-  online: "border-primary bg-[#ecfdf4] text-ink",
+  online: "border-primary bg-canvas-soft text-ink",
   idle: "border-hairline bg-canvas-soft text-ink-muted",
-  warning: "border-[#f1c27d] bg-[#fff8ed] text-ink",
+  warning: "border-hairline-strong bg-canvas-soft text-ink",
   dark: "border-canvas-night bg-canvas-night text-white",
 };
 

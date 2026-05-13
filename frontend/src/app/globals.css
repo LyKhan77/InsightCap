@@ -19,6 +19,21 @@
   --on-primary: #171717;
 }
 
+[data-theme="dark"] {
+  --canvas: #111111;
+  --canvas-soft: #1a1a1a;
+  --canvas-night: #050505;
+  --canvas-night-soft: #171717;
+  --ink: #f5f5f5;
+  --ink-secondary: #ededed;
+  --ink-muted: #a3a3a3;
+  --ink-faint: #666666;
+  --hairline: #2b2b2b;
+  --hairline-strong: #4a4a4a;
+  --hairline-cool: #242424;
+  --on-primary: #171717;
+}
+
 * {
   box-sizing: border-box;
 }

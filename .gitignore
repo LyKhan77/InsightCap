@@ -75,6 +75,7 @@ video-test/
 screenshoot-temp/
 debug_ollama.py
 conductor/
+docs/plans/
 
 # Jupyter
 .ipynb_checkpoints/

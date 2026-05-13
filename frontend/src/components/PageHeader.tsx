@@ -31,7 +31,7 @@ export function PageHeader({
             className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-muted transition-colors duration-200 hover:bg-canvas-soft hover:text-ink focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <span aria-hidden="true">&larr;</span>
-            <span className="hidden sm:inline">Back</span>
+            <span className="hidden sm:inline">Change Mode</span>
           </button>
 
           <div className="h-5 w-px bg-hairline" />

@@ -95,12 +95,13 @@ cd web && streamlit run app.py
 ## Web Interface
 
 The production frontend prototype in `frontend/` is the new target UI. It uses
-a white, product-focused design system from `DESIGN.md` and mirrors the
-Streamlit workflows with local dummy state:
+a white, product-focused design system from `DESIGN.md` with multi-page routing:
 
-- **Select Mode Page**: choose `Video Analysis` or `RTSP Monitoring`
-- **Left control rail**: upload/source configuration, model, prompt presets, and custom prompts
-- **Main workspace**: preview panel, live captions panel, summary/export, and metadata strip
+- **Mode Switch Page** (`/`): choose `Video` or `RTSP` monitoring mode
+- **Video Mode** (`/video`): upload analysis with live stream and captions panels
+- **RTSP Mode** (`/rtsp`): live camera monitoring with real-time caption streaming
+- **Floating controls drawer**: settings accessible via gear icon in header
+- **Light/dark theme**: persisted via localStorage
 
 The existing `web/` Streamlit interface is retained as a legacy app during the
 transition:
