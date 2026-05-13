@@ -28,6 +28,7 @@ def render_rtsp_stream_empty():
 def render_rtsp_live_stream(preview_url: str, session_name: str, source: str):
     """Render the MJPEG bridge stream for RTSP monitoring."""
     st.markdown('<div class="panel-header">◈ LIVE_STREAM</div>', unsafe_allow_html=True)
+    preview_url_json = json.dumps(preview_url)
     html = f"""
     <style>
         * {{ box-sizing: border-box; }}
@@ -91,7 +92,7 @@ def render_rtsp_live_stream(preview_url: str, session_name: str, source: str):
     </style>
     <div class="shell">
         <div class="stream">
-            <img src="{preview_url}" alt="RTSP preview"
+            <img id="rtsp-preview" alt="RTSP preview"
                  onload="document.getElementById('rtsp-overlay').style.display='none';"
                  onerror="document.getElementById('rtsp-overlay').style.display='flex';">
             <div class="overlay" id="rtsp-overlay">Connecting preview bridge...</div>
@@ -104,6 +105,18 @@ def render_rtsp_live_stream(preview_url: str, session_name: str, source: str):
             <div class="source">{source}</div>
         </div>
     </div>
+    <script>
+        function browserReachableApiUrl(rawUrl) {{
+            const apiUrl = new URL(rawUrl);
+            const pageHost = window.parent.location.hostname || window.location.hostname;
+            if ((apiUrl.hostname === "localhost" || apiUrl.hostname === "127.0.0.1")
+                && pageHost !== "localhost" && pageHost !== "127.0.0.1") {{
+                apiUrl.hostname = pageHost;
+            }}
+            return apiUrl.toString();
+        }}
+        document.getElementById("rtsp-preview").src = browserReachableApiUrl({preview_url_json});
+    </script>
     """
     components.html(html, height=390, scrolling=False)
 
@@ -190,7 +203,16 @@ def render_rtsp_live_captions(events_ws_url: str):
         </div>
     </div>
     <script>
-        const wsUrl = {ws_url};
+        function browserReachableWsUrl(rawUrl) {{
+            const apiUrl = new URL(rawUrl);
+            const pageHost = window.parent.location.hostname || window.location.hostname;
+            if ((apiUrl.hostname === "localhost" || apiUrl.hostname === "127.0.0.1")
+                && pageHost !== "localhost" && pageHost !== "127.0.0.1") {{
+                apiUrl.hostname = pageHost;
+            }}
+            return apiUrl.toString();
+        }}
+        const wsUrl = browserReachableWsUrl({ws_url});
         const statusEl = document.getElementById("status");
         const eventsEl = document.getElementById("events");
         const emptyEl = document.getElementById("empty");
