@@ -29,14 +29,14 @@ class RtspSession:
 
     _HEARTBEAT_SECONDS = 5.0
     _RECONNECT_DELAY_SECONDS = 2.0
-    _IDLE_WAIT_SECONDS = 0.02
+    _IDLE_WAIT_SECONDS = 0.05
     _RECENT_EVENTS_MAX = 32
     _RECENT_CAPTIONS_MAX = 8
     _SUBSCRIBER_QUEUE_MAX = 32
     _PREVIEW_INTERVAL_SECONDS = 0.1
     _PREVIEW_MAX_WIDTH = 960
     _PREVIEW_JPEG_QUALITY = 70
-    _MAX_CONSECUTIVE_READ_FAILURES = 5
+    _MAX_CONSECUTIVE_READ_FAILURES = 240
 
     def __init__(self, session_id: str, request: RTSPSessionCreateRequest) -> None:
         self.session_id = session_id
@@ -321,7 +321,7 @@ class RtspSession:
                     if consecutive_failures >= self._MAX_CONSECUTIVE_READ_FAILURES:
                         raise IOError(
                             "Live stream frame read failed after "
-                            f"{consecutive_failures} consecutive reads."
+                            f"{round(consecutive_failures * self._IDLE_WAIT_SECONDS, 1)} seconds."
                         )
                     time.sleep(self._IDLE_WAIT_SECONDS)
                     continue

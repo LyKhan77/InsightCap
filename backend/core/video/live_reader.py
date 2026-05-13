@@ -13,7 +13,7 @@ class LiveStreamReader:
         self,
         url: str,
         open_timeout_ms: int = 5000,
-        read_timeout_ms: int = 5000,
+        read_timeout_ms: int = 15000,
     ) -> None:
         self.url = url
         self.open_timeout_ms = open_timeout_ms
@@ -50,7 +50,7 @@ class LiveStreamReader:
             return
         os.environ.setdefault(
             "OPENCV_FFMPEG_CAPTURE_OPTIONS",
-            "rtsp_transport;tcp|stimeout;10000000|max_delay;500000",
+            "rtsp_transport;tcp|stimeout;15000000|max_delay;500000",
         )
 
     def _capture_params(self) -> list[int]:

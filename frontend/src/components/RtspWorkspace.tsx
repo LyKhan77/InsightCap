@@ -8,6 +8,8 @@ type RtspWorkspaceProps = {
   sessionName: string;
   source: string;
   previewUrl: string | null;
+  previewReady: boolean;
+  onPreviewReady: () => void;
   streamError: string | null;
   captions: CaptionRow[];
   metadata: RtspMetadata;
@@ -17,6 +19,8 @@ export function RtspWorkspace({
   sessionName,
   source,
   previewUrl,
+  previewReady,
+  onPreviewReady,
   streamError,
   captions,
   metadata,
@@ -46,6 +50,7 @@ export function RtspWorkspace({
                 <img
                   src={previewUrl}
                   alt="RTSP live preview"
+                  onLoad={onPreviewReady}
                   className="aspect-video w-full bg-canvas-night object-contain"
                 />
               ) : (
@@ -55,20 +60,24 @@ export function RtspWorkspace({
                       <div key={index} className="rounded-sm border border-white/10 bg-white/10" />
                     ))}
                   </div>
-                  {streamError ? (
-                    <div className="absolute inset-x-4 top-4 rounded-md border border-[#c2410c]/60 bg-[#451a03]/90 p-3 text-sm leading-6 text-white shadow-sm">
-                      <div className="font-mono text-xs uppercase tracking-wide text-[#fdba74]">
-                        Stream warning
-                      </div>
-                      <p className="mt-1 break-words">{streamError}</p>
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm leading-6 text-white/70">
-                      Preview will appear after the backend connects to the RTSP source.
-                    </div>
-                  )}
+                  <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm leading-6 text-white/70">
+                    Preview will appear after the backend connects to the RTSP source.
+                  </div>
                 </div>
               )}
+              {previewUrl && !previewReady && !streamError ? (
+                <div className="absolute inset-0 grid place-items-center bg-canvas-night/80 px-6 text-center text-sm leading-6 text-white/70">
+                  Waiting for the first preview frame from the backend.
+                </div>
+              ) : null}
+              {streamError ? (
+                <div className="absolute inset-x-4 top-4 rounded-md border border-[#c2410c]/60 bg-[#451a03]/90 p-3 text-sm leading-6 text-white shadow-sm">
+                  <div className="font-mono text-xs uppercase tracking-wide text-[#fdba74]">
+                    Stream warning
+                  </div>
+                  <p className="mt-1 break-words">{streamError}</p>
+                </div>
+              ) : null}
               <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 border-t border-white/10 bg-canvas-night/95 p-4 text-white">
                 <div>
                   <div className="font-mono text-xs uppercase tracking-wide text-white/60">

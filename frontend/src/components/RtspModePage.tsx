@@ -31,6 +31,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
   const [rtspStatus, setRtspStatus] = useState<RtspStatus>("idle");
   const [rtspCaptions, setRtspCaptions] = useState<CaptionRow[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewReady, setPreviewReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [rtspMetadata, setRtspMetadata] = useState<RtspMetadata>({
     status: "idle",
@@ -51,6 +52,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
     websocketRef.current = null;
     sessionIdRef.current = null;
     setPreviewUrl(null);
+    setPreviewReady(false);
     setStreamError(null);
 
     if (sessionId) {
@@ -122,6 +124,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
     });
     setRtspCaptions([]);
     setPreviewUrl(null);
+    setPreviewReady(false);
     setStreamError(null);
 
     try {
@@ -149,6 +152,13 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
       websocketRef.current = socket;
       socket.onmessage = (message) => {
         const event = JSON.parse(message.data) as RtspEvent;
+        if (event.event === "connected" || event.event === "caption") {
+          setStreamError(null);
+        }
+        if (event.event === "warning" || event.event === "error") {
+          const message = event.data.message;
+          setStreamError(typeof message === "string" ? message : "RTSP stream warning received.");
+        }
         setRtspCaptions((current) => {
           const normalized = normalizeRtspEvent(event, current.length);
           if (normalized.status) {
@@ -246,6 +256,8 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
           sessionName={rtspSessionName}
           source={rtspUrl}
           previewUrl={previewUrl}
+          previewReady={previewReady}
+          onPreviewReady={() => setPreviewReady(true)}
           streamError={streamError}
           captions={rtspCaptions}
           metadata={rtspMetadata}
