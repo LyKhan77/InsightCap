@@ -19,7 +19,7 @@
 | VLM Backend | vLLM + Qwen/Qwen3.5-0.8B |
 | Video Processing | OpenCV (cv2) |
 | API Layer | FastAPI + Uvicorn |
-| Web Interface | Streamlit |
+| Web Interface | Next.js production frontend (`frontend/`) |
 | Streaming | SSE (video) / WebSocket (RTSP) |
 | Device Acceleration | MPS (Apple Silicon) / CUDA (NVIDIA) / CPU fallback |
 
@@ -31,11 +31,11 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           LAYER 3: WEB INTERFACE                            │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  Streamlit Application (web/)                                         │  │
-│  │  ├── Mode Selection (Video/RTSP)                                      │  │
-│  │  ├── Video Upload Panel & Preview Player                              │  │
-│  │  ├── RTSP Live Preview (MJPEG bridge)                                 │  │
-│  │  ├── Real-time Caption Display (SSE/WebSocket)                        │  │
+│  │  Next.js Application (frontend/)                                      │  │
+│  │  ├── / mode switch (Video/RTSP)                                       │  │
+│  │  ├── /video upload + SSE captions                                     │  │
+│  │  ├── /rtsp MJPEG preview + WebSocket captions                         │  │
+│  │  ├── Floating controls drawer                                         │  │
 │  │  └── JSON Export                                                      │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -44,7 +44,7 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            LAYER 2: API LAYER                                │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  FastAPI Server (api/)                                                │  │
+│  │  FastAPI Server (backend/app/)                                        │  │
 │  │  ├── /api/v1/analyze          → Full JSON response                    │  │
 │  │  ├── /api/v1/analyze/stream   → SSE streaming                         │  │
 │  │  ├── /api/v1/rtsp/sessions    → RTSP session management               │  │
@@ -58,7 +58,7 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         LAYER 1: CORE ENGINE                                 │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  Pipeline (insightcap/)                                               │  │
+│  │  Pipeline (backend/core/)                                             │  │
 │  │  ├── video/                                                           │  │
 │  │  │   ├── reader.py        → VideoReader (local file OpenCV wrapper)  │  │
 │  │  │   ├── sampler.py       → FrameSampler (interval extraction)       │  │
@@ -103,10 +103,10 @@ User Upload → Temp File → VideoReader → FrameSampler → CaptionPipeline �
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| VideoReader | `insightcap/video/reader.py` | OpenCV wrapper for local video files |
-| FrameSampler | `insightcap/video/sampler.py` | Interval-based frame extraction |
-| CaptionPipeline | `insightcap/pipeline.py` | Orchestrates sampling, inference, summary |
-| AnalysisService | `api/service.py` | Async bridge to sync pipeline |
+| VideoReader | `backend/core/video/reader.py` | OpenCV wrapper for local video files |
+| FrameSampler | `backend/core/video/sampler.py` | Interval-based frame extraction |
+| CaptionPipeline | `backend/core/pipeline.py` | Orchestrates sampling, inference, summary |
+| AnalysisService | `backend/app/services/video_analysis.py` | Async bridge to sync pipeline |
 
 **Auto-Sampling Strategy**:
 ```python
@@ -137,9 +137,9 @@ RTSP URL → LiveStreamReader → Background Thread → Frame Capture Loop → I
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| LiveStreamReader | `insightcap/video/live_reader.py` | OpenCV wrapper for RTSP streams |
-| RtspSession | `api/rtsp_service.py` | Per-session worker thread management |
-| RtspSessionService | `api/rtsp_service.py` | Registry and lifecycle manager |
+| LiveStreamReader | `backend/core/video/live_reader.py` | OpenCV wrapper for RTSP streams |
+| RtspSession | `backend/app/services/rtsp/` | Per-session worker thread management |
+| RtspSessionService | `backend/app/services/rtsp/` | Registry and lifecycle manager |
 
 **Session Lifecycle**:
 ```
@@ -164,7 +164,7 @@ DELETE /sessions → RtspSession.stop() → Thread.join() → Cleanup
 
 **Purpose**: Maintain narrative continuity across frames by including previous captions in the prompt.
 
-**Implementation** (`insightcap/prompt/builder.py`):
+**Implementation** (`backend/core/prompt/builder.py`):
 
 ```python
 def build_frame_message_with_context(
@@ -197,7 +197,7 @@ def build_frame_message_with_context(
 ```
 ┌─────────────┐    POST /analyze/stream    ┌─────────────┐
 │   Browser   │ ───────────────────────────│   FastAPI   │
-│  (Streamlit)│ ◄──────────────────────────│   Server    │
+│  (Next.js) │ ◄──────────────────────────│   Server    │
 │             │     text/event-stream       │             │
 └─────────────┘                            │      │      │
                                            │   async     │
@@ -215,7 +215,7 @@ def build_frame_message_with_context(
 ```
 ┌─────────────┐   WS /sessions/{id}/events  ┌─────────────┐
 │   Browser   │ ◄────────────────────────────│   FastAPI   │
-│  (Streamlit)│                              │   Server    │
+│  (Next.js) │                              │   Server    │
 │             │                              │      │      │
 │             │   GET /sessions/{id}/preview │      │      │
 │             │ ─────────────────────────────│   MJPEG    │
@@ -309,7 +309,7 @@ def build_frame_message_with_context(
 
 ### 5.1 Core Engine Components
 
-#### `insightcap/video/reader.py` - VideoReader
+#### `backend/core/video/reader.py` - VideoReader
 
 ```python
 class VideoReader:
@@ -327,7 +327,7 @@ class VideoReader:
         - read_frame(index)  # Seek and read specific frame
 ```
 
-#### `insightcap/video/sampler.py` - FrameSampler
+#### `backend/core/video/sampler.py` - FrameSampler
 
 ```python
 class FrameSampler:
@@ -341,7 +341,7 @@ class FrameSampler:
         - sample(reader) -> list[ndarray]  # Extract frames
 ```
 
-#### `insightcap/video/live_reader.py` - LiveStreamReader
+#### `backend/core/video/live_reader.py` - LiveStreamReader
 
 ```python
 class LiveStreamReader:
@@ -357,7 +357,7 @@ class LiveStreamReader:
         - read() -> ndarray | None  # Get next frame
 ```
 
-#### `insightcap/inference/base.py` - CaptionBackend (ABC)
+#### `backend/core/inference/base.py` - CaptionBackend (ABC)
 
 ```python
 class CaptionBackend(ABC):
@@ -372,7 +372,7 @@ class CaptionBackend(ABC):
         """Stream a summary caption given per-frame captions."""
 ```
 
-#### `insightcap/inference/vllm_backend.py` - VLLMBackend
+#### `backend/core/inference/vllm_backend.py` - VLLMBackend
 
 ```python
 class VLLMBackend(CaptionBackend):
@@ -385,7 +385,7 @@ Key features:
 - Calls `http://localhost:8060/v1/chat/completions`
 - Supports streaming and non-streaming modes
 
-#### `insightcap/pipeline.py` - CaptionPipeline
+#### `backend/core/pipeline.py` - CaptionPipeline
 
 ```python
 class CaptionPipeline:
@@ -410,7 +410,7 @@ class CaptionPipeline:
 
 ### 5.2 API Layer Components
 
-#### `api/main.py` - FastAPI Application
+#### `backend/app/main.py` - FastAPI Application
 
 ```python
 app = FastAPI(title="InsightCap API", version="2.0.0")
@@ -427,7 +427,7 @@ Lifecycle:
     - on_event("shutdown") → rtsp_session_service.shutdown()
 ```
 
-#### `api/service.py` - AnalysisService
+#### `backend/app/services/video_analysis.py` - AnalysisService
 
 ```python
 class AnalysisService:
@@ -446,7 +446,7 @@ class AnalysisService:
         # SSE event generator with callbacks
 ```
 
-#### `api/rtsp_service.py` - RtspSessionService
+#### `backend/app/services/rtsp/` - RtspSessionService
 
 ```python
 class RtspSessionService:
@@ -505,7 +505,7 @@ class APIClient:
 
 ```python
 class StateManager:
-    """Standalone Streamlit session state manager."""
+    """Standalone legacy Streamlit session state manager."""
     
     Session State Keys:
         - app_mode: "video" | "rtsp" | None
@@ -662,10 +662,10 @@ RTSP Mode:  One worker thread per session
 docker compose up vllm
 
 # Terminal 2: API Server
-uvicorn api.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --port 6060
 
 # Terminal 3: Web App
-cd web && streamlit run app.py
+cd frontend && npm run dev
 ```
 
 ### 10.2 Production Architecture (Recommended)
@@ -699,52 +699,22 @@ cd web && streamlit run app.py
 
 ```
 video-captioning/
-├── api/                              # Layer 2: FastAPI
-│   ├── __init__.py
-│   ├── main.py                       # App initialization, CORS, routers
-│   ├── schemas.py                    # Pydantic request/response models
-│   ├── service.py                    # Async pipeline bridge
-│   ├── rtsp_schemas.py                # RTSP session schemas
-│   ├── rtsp_service.py               # RTSP session management
-│   └── routes/
-│       ├── __init__.py
-│       ├── analyze.py                # /analyze endpoints
-│       └── rtsp.py                    # /rtsp endpoints
+├── backend/                          # FastAPI + core engine
+│   ├── app/
+│   │   ├── main.py                   # App initialization, CORS, routers
+│   │   ├── api/v1/routes/            # Analyze, RTSP, system routes
+│   │   ├── schemas/                  # Pydantic request/response models
+│   │   └── services/                 # Video analysis + RTSP session services
+│   └── core/                         # Caption pipeline, video, inference, prompts
 │
-├── insightcap/                       # Layer 1: Core Engine
-│   ├── __init__.py
-│   ├── cli.py                        # Click CLI entrypoint
-│   ├── config.py                     # SamplerConfig, InferenceConfig
-│   ├── device.py                     # detect_device()
-│   ├── pipeline.py                   # CaptionPipeline
-│   ├── video/
-│   │   ├── __init__.py
-│   │   ├── reader.py                 # VideoReader (local files)
-│   │   ├── live_reader.py            # LiveStreamReader (RTSP)
-│   │   └── sampler.py                 # FrameSampler
-│   ├── inference/
-│   │   ├── __init__.py
-│   │   ├── base.py                   # CaptionBackend ABC
-│   │   ├── factory.py                # get_backend()
-│   │   └── vllm_backend.py           # VLLMBackend
-│   └── prompt/
-│       ├── __init__.py
-│       └── builder.py                 # PromptBuilder
+├── frontend/                         # Layer 3: Next.js production UI
+│   ├── src/app/                      # /, /video, /rtsp routes
+│   ├── src/components/               # Workspace, controls, captions panels
+│   └── src/lib/                      # API, SSE, WS, export, theme helpers
 │
-├── web/                              # Layer 3: Streamlit
-│   ├── app.py                        # Main application
-│   ├── .streamlit/
-│   │   └── config.toml               # Theme configuration
-│   ├── components/
-│   │   ├── __init__.py
-│   │   ├── sidebar.py                # Video & RTSP sidebar controls
-│   │   ├── streaming_panel.py        # LIVE_STREAM panel (video)
-│   │   ├── results_panel.py          # LIVE_CAPTIONS panel
-│   │   └── rtsp_panel.py             # RTSP-specific components
-│   └── utils/
-│       ├── __init__.py
-│       ├── api_client.py             # HTTP client
-│       └── state_manager.py          # Session state
+├── api/                              # Legacy pre-restructure FastAPI package
+├── insightcap/                       # Legacy pre-restructure core package
+├── web/                              # Deprecated legacy Streamlit UI
 │
 ├── conductor/                        # Architecture documentation
 │   ├── ARCHITECTURE.md               # This document

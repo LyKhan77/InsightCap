@@ -42,7 +42,7 @@ Aktifkan environment lalu jalankan server:
 
 ```bash
 source env/bin/activate
-uvicorn api.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --port 6060
 ```
 
 Sebelum menjalankan API, pastikan vLLM aktif:
@@ -371,7 +371,7 @@ curl http://localhost:6060/health
 
 Solusi:
 
-- pastikan `uvicorn api.main:app --reload --port 6060` sedang berjalan
+- pastikan `uvicorn backend.app.main:app --reload --port 6060` sedang berjalan
 - pastikan port `6060` tidak dipakai service lain
 
 ### 2. vLLM belum aktif
@@ -496,12 +496,12 @@ Catatan:
 
 Bagian implementasi utama:
 
-- `api/main.py`
-- `api/routes/analyze.py`
-- `api/routes/rtsp.py`
-- `api/rtsp_service.py`
-- `api/schemas.py`
-- `api/rtsp_schemas.py`
-- `api/service.py`
-- `insightcap/config.py`
-- `insightcap/prompt/builder.py`
+- `backend/app/main.py`
+- `backend/app/api/v1/routes/analyze.py`
+- `backend/app/api/v1/routes/rtsp.py`
+- `backend/app/services/rtsp/`
+- `backend/app/schemas/video.py`
+- `backend/app/schemas/rtsp.py`
+- `backend/app/services/video_analysis.py`
+- `backend/core/config.py`
+- `backend/core/prompt/builder.py`

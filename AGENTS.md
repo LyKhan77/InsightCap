@@ -8,17 +8,17 @@
 
 ### Definition
 
-InsightCap is a Python application with three layers:
+InsightCap is a Python + Next.js application with three layers:
 
 1. **Core engine**: reads frames, builds prompts, runs VLM inference, and returns captions.
 2. **API**: exposes uploaded-video analysis and RTSP monitoring endpoints.
-3. **Web app**: Streamlit interface for video mode and RTSP mode.
+3. **Web app**: Next.js production frontend for video mode and RTSP mode.
 
 ---
 
 ## Key Features
 
-- Uploaded video analysis through FastAPI and Streamlit.
+- Uploaded video analysis through FastAPI and the Next.js frontend.
 - SSE streaming for uploaded-video captions: `init`, `frame`, `summary`, `done`.
 - RTSP live monitoring with session lifecycle API.
 - RTSP live preview through MJPEG endpoint.
@@ -43,7 +43,7 @@ web/ Streamlit UI (legacy)
   ├─ video mode: upload local video, stream captions over SSE
   └─ rtsp mode: start camera session, show MJPEG preview + WebSocket captions
 
-api/ FastAPI
+backend/app/ FastAPI
   ├─ /api/v1/analyze: uploaded-video JSON result
   ├─ /api/v1/analyze/stream: uploaded-video SSE result
   ├─ /api/v1/rtsp/sessions: RTSP session create/list/get/delete
@@ -51,7 +51,7 @@ api/ FastAPI
   ├─ /api/v1/rtsp/sessions/{id}/preview.mjpeg
   └─ /api/v1/rtsp/sessions/{id}/events: WebSocket events
 
-insightcap/ core engine
+backend/core/ core engine
   ├─ VideoReader / LiveStreamReader: OpenCV file and RTSP reads
   ├─ FrameSampler: sampled frames from uploaded videos
   ├─ PromptBuilder: frame, live frame, and summary prompts
@@ -90,7 +90,9 @@ InsightCap/
 │   ├── src/lib/
 │   │   ├── types.ts                 # TypeScript types
 │   │   ├── use-theme.ts             # Theme hook (localStorage)
-│   │   ├── dummy-data.ts            # Mock caption data
+│   │   ├── api.ts                   # FastAPI client helpers
+│   │   ├── video-stream.ts          # Uploaded-video SSE parser
+│   │   ├── rtsp-events.ts           # RTSP WebSocket event normalizer
 │   │   └── export.ts                # JSON export utility
 │   ├── src/data/
 │   │   └── prompts.ts               # Video and RTSP prompt presets
@@ -99,33 +101,25 @@ InsightCap/
 │   ├── tailwind.config.ts           # Tailwind + design tokens
 │   └── package.json                 # Webpack dev server on port 3060
 │
-├── api/                              # FastAPI layer
-│   ├── main.py                       # App setup, CORS, routers, health, RTSP shutdown hook
-│   ├── service.py                    # Async bridge to CaptionPipeline for uploaded videos
-│   ├── schemas.py                    # Uploaded-video Pydantic schemas
-│   ├── rtsp_service.py               # RTSP session workers, reconnect, preview, caption events
-│   ├── rtsp_schemas.py               # RTSP request/response/event schemas
-│   └── routes/
-│       ├── analyze.py                # /api/v1/analyze and /api/v1/analyze/stream
-│       └── rtsp.py                   # RTSP sessions, preview.jpg, preview.mjpeg, WebSocket events
+├── backend/                          # New FastAPI + core backend package
+│   ├── app/
+│   │   ├── main.py                   # App setup, CORS, routers, health, RTSP shutdown hook
+│   │   ├── api/v1/routes/            # System, analyze, and RTSP routes
+│   │   ├── schemas/                  # Video, RTSP Pydantic schemas
+│   │   └── services/                 # Video analysis and RTSP session services
+│   └── core/
+│       ├── pipeline.py               # Uploaded-video orchestration and summary generation
+│       ├── config.py                 # Sampler and inference config; default backend: vllm
+│       ├── device.py                 # MPS/CUDA/CPU detection
+│       ├── cli.py                    # Local CLI entrypoint
+│       ├── video/                    # OpenCV file and RTSP readers, sampler
+│       ├── inference/                # CaptionBackend and vLLM backend
+│       └── prompt/                   # PromptBuilder
 │
-├── insightcap/                       # Core captioning engine
-│   ├── pipeline.py                   # Uploaded-video orchestration and summary generation
-│   ├── config.py                     # Sampler and inference config; default backend: vllm
-│   ├── device.py                     # MPS/CUDA/CPU detection
-│   ├── cli.py                        # Local CLI entrypoint
-│   ├── video/
-│   │   ├── reader.py                 # OpenCV local video reader
-│   │   ├── live_reader.py            # OpenCV RTSP/live stream reader
-│   │   └── sampler.py                # Frame sampling for uploaded videos
-│   ├── inference/
-│   │   ├── base.py                   # CaptionBackend interface
-│   │   ├── factory.py                # Backend selector: vllm
-│   │   ├── vllm_backend.py           # OpenAI-compatible vLLM backend
-│   └── prompt/
-│       └── builder.py                # Frame, live frame, and summary prompt builder
+├── api/                              # Legacy pre-restructure FastAPI layer
+├── insightcap/                       # Legacy pre-restructure core package
 │
-├── web/                              # Streamlit interface
+├── web/                              # Deprecated Streamlit interface
 │   ├── app.py                        # Mode selector, video mode, RTSP mode, layout, styling
 │   ├── components/
 │   │   ├── sidebar.py                # Video upload controls and RTSP session controls
@@ -157,9 +151,9 @@ InsightCap/
 
 ### Being Developed
 
-- Frontend production UI redesign in `frontend/` (Next.js multi-page architecture).
+- Frontend production UI integration in `frontend/` (Next.js multi-page architecture).
 - vLLM-first inference service development.
-- RTSP live monitoring flow in API and Streamlit.
+- Backend package restructure in `backend/`.
 
 ### Current Problems
 
@@ -181,15 +175,18 @@ InsightCap/
   - Light/dark theme persisted via localStorage (`useTheme` hook).
   - DESIGN.md emerald green style (`#3ecf8e` primary, Inter font, white/near-black canvas).
   - Dev server: Webpack (`--webpack` flag), port 3060.
-  - All mock data, no BE integration yet.
-  - Playwright e2e tests pass (6/6) in `frontend/tests/insightcap.spec.ts`.
+  - Calls FastAPI directly via `NEXT_PUBLIC_API_BASE_URL`.
+  - `/video` streams uploaded-video captions over SSE.
+  - `/rtsp` creates backend sessions, renders MJPEG preview, and subscribes to WebSocket events.
+  - Playwright e2e tests mock backend SSE/REST/WS flows.
 - Default `InferenceConfig.backend` is `vllm`.
 - Default `InferenceConfig.vllm_base_url` is `http://localhost:8060/v1`.
 - `VLLMBackend` exists and is covered by `tests/test_vllm_backend.py`.
 - `docker-compose.yml` serves vLLM on host/container port `8060`.
-- FastAPI includes analyze and RTSP routers.
+- FastAPI entrypoint is `backend.app.main:app`.
+- FastAPI includes system, analyze, and RTSP routers.
 - RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, and WebSocket events.
-- Streamlit (`web/`) retained as legacy interface during transition.
+- Streamlit (`web/`) retained as deprecated legacy interface during transition.
 
 ---
 

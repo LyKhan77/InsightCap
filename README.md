@@ -49,31 +49,18 @@ curl http://localhost:8060/health
 
 # Terminal 2: Start API server
 source env/bin/activate
-uvicorn api.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --port 6060
 
 # Confirm API sees vLLM:
 curl http://localhost:6060/health
 
-# Terminal 3: Start Streamlit Web App (legacy)
-source env/bin/activate
-cd web && streamlit run app.py
-```
-
-Access the legacy Streamlit app at **http://localhost:8501**
-
-### Production Frontend Prototype
-
-The redesigned frontend lives in `frontend/`. This is currently a Next.js +
-TypeScript dummy prototype for validating the production UI before backend
-integration. It does not call FastAPI, SSE, WebSocket, or MJPEG endpoints yet.
-
-```bash
+# Terminal 3: Start Next.js frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-Access the production frontend prototype at **http://localhost:3060**
+Access the production frontend at **http://localhost:3060**.
 
 For background mode after the vLLM image is fully downloaded:
 
@@ -83,32 +70,39 @@ docker compose up -d vllm
 
 # Terminal 2: API
 source env/bin/activate
-uvicorn api.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --port 6060
 
-# Terminal 3: Streamlit Web (legacy)
-source env/bin/activate
-cd web && streamlit run app.py
+# Terminal 3: Frontend
+cd frontend && npm run dev
 ```
 
 ---
 
 ## Web Interface
 
-The production frontend prototype in `frontend/` is the new target UI. It uses
-a white, product-focused design system from `DESIGN.md` with multi-page routing:
+The production frontend in `frontend/` is the primary web interface. It uses a
+white, product-focused design system from `DESIGN.md` with multi-page routing
+and direct FastAPI integration:
 
 - **Mode Switch Page** (`/`): choose `Video` or `RTSP` monitoring mode
-- **Video Mode** (`/video`): upload analysis with live stream and captions panels
-- **RTSP Mode** (`/rtsp`): live camera monitoring with real-time caption streaming
+- **Video Mode** (`/video`): upload analysis streamed from FastAPI SSE
+- **RTSP Mode** (`/rtsp`): MJPEG preview plus RTSP caption events over WebSocket
 - **Floating controls drawer**: settings accessible via gear icon in header
 - **Light/dark theme**: persisted via localStorage
 
-The existing `web/` Streamlit interface is retained as a legacy app during the
-transition:
+The existing `web/` Streamlit interface is retained as a deprecated legacy app
+for rollback/reference only:
 
 - **Select Mode Page**: choose `VIDEO` or `RTSP`
 - **Left panel — LIVE_STREAM**: Video player (autoplays and locks during analysis)
 - **Right panel — LIVE_CAPTIONS**: Captions stream in real-time as frames are processed
+
+Legacy Streamlit command:
+
+```bash
+source env/bin/activate
+cd web && streamlit run app.py
+```
 
 ### Video Mode
 
@@ -116,8 +110,8 @@ transition:
 1. Upload a video in the sidebar
 2. Select model (default: `qwen3.5:0.8b`)
 3. Click `[ INITIATE_ANALYSIS ]`
-4. Backend reads video metadata → frontend shows `INITIALIZING...`
-5. Video autoplays + locks; captions stream in the right panel
+4. Frontend posts to `/api/v1/analyze/stream`
+5. Backend emits `init`, `frame`, `summary`, and `done` SSE events
 6. Pipeline stops automatically when video duration is reached
 7. Final narrative summary appears; video controls restored
 
@@ -138,16 +132,16 @@ No FPS or frame interval config needed — sampling is auto-computed from the vi
 
 ```bash
 # Basic caption (summary only)
-python -m insightcap.cli path/to/video.mp4
+python -m backend.core.cli path/to/video.mp4
 
 # Verbose (per-frame + summary)
-python -m insightcap.cli path/to/video.mp4 --verbose
+python -m backend.core.cli path/to/video.mp4 --verbose
 
 # Custom model
-python -m insightcap.cli path/to/video.mp4 --model qwen3.5:0.8b
+python -m backend.core.cli path/to/video.mp4 --model qwen3.5:0.8b
 
 # Save to JSON
-python -m insightcap.cli path/to/video.mp4 --output result.json
+python -m backend.core.cli path/to/video.mp4 --output result.json
 ```
 
 ---
@@ -181,6 +175,5 @@ If Playwright browsers are not installed on the remote machine yet, run
 - vLLM must be running before analysis requests are sent (`docker compose up vllm`)
 - Sequential inference — one vLLM chat-completion call per frame, no frame batching yet
 - Sync is time-based approximation, not frame-perfect
-- The production frontend is currently dummy/local-state only; backend integration is a later phase
-- The Streamlit web app remains available as legacy during transition
+- The Streamlit web app remains available as deprecated legacy during transition
 - No authentication or rate limiting on the API
