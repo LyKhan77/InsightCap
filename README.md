@@ -100,20 +100,6 @@ and direct FastAPI integration:
 - **Floating controls drawer**: settings accessible via gear icon in header
 - **Light/dark theme**: persisted via localStorage
 
-The existing `web/` Streamlit interface is retained as a deprecated legacy app
-for rollback/reference only:
-
-- **Select Mode Page**: choose `VIDEO` or `RTSP`
-- **Left panel — LIVE_STREAM**: Video player (autoplays and locks during analysis)
-- **Right panel — LIVE_CAPTIONS**: Captions stream in real-time as frames are processed
-
-Legacy Streamlit command:
-
-```bash
-source env/bin/activate
-cd web && streamlit run app.py
-```
-
 ### Video Mode
 
 **How it works:**
@@ -185,5 +171,4 @@ If Playwright browsers are not installed on the remote machine yet, run
 - vLLM must be running before analysis requests are sent (`docker compose up vllm`)
 - Sequential inference — one vLLM chat-completion call per frame, no frame batching yet
 - Sync is time-based approximation, not frame-perfect
-- The Streamlit web app remains available as deprecated legacy during transition
 - No authentication or rate limiting on the API

@@ -481,43 +481,6 @@ class RtspSession:
         - unsubscribe(subscriber_id)
 ```
 
-### 5.3 Web Interface Components
-
-#### `web/utils/api_client.py` - APIClient
-
-```python
-class APIClient:
-    """HTTP client for InsightCap API."""
-    
-    Methods:
-        - health_check() -> dict
-        - analyze(video_path, model) -> dict  # Non-streaming
-        - analyze_stream(video_path, model) -> Generator[dict]  # SSE
-        - create_rtsp_session(rtsp_url, model, ...) -> dict
-        - list_rtsp_sessions() -> dict
-        - get_rtsp_session(session_id) -> dict
-        - delete_rtsp_session(session_id) -> dict
-        - rtsp_preview_stream_url(session_id) -> str
-        - rtsp_events_ws_url(session_id) -> str
-```
-
-#### `web/utils/state_manager.py` - StateManager
-
-```python
-class StateManager:
-    """Standalone legacy Streamlit session state manager."""
-    
-    Session State Keys:
-        - app_mode: "video" | "rtsp" | None
-        - current_analysis: dict | None
-        - current_rtsp_session: dict | None
-        - is_analyzing: bool
-        - api_connected: bool
-        - api_error: str | None
-```
-
----
-
 ## 6. Configuration
 
 ### 6.1 SamplerConfig
@@ -712,23 +675,12 @@ video-captioning/
 │   ├── src/components/               # Workspace, controls, captions panels
 │   └── src/lib/                      # API, SSE, WS, export, theme helpers
 │
-├── api/                              # Legacy pre-restructure FastAPI package
-├── insightcap/                       # Legacy pre-restructure core package
-├── web/                              # Deprecated legacy Streamlit UI
-│
-├── conductor/                        # Architecture documentation
-│   ├── ARCHITECTURE.md               # This document
-│   └── prompt/
-│       ├── README.md
-│       ├── phase-1-core-engine.md
-│       ├── phase-2-api-layer.md
-│       └── phase-3-web-app.md
-│
-├── PRD.md                            # Product Requirements
-├── AGENT.md                          # Development context
+├── docs/plans/                       # Implementation plans and specs
+├── docker-compose.yml                # vLLM OpenAI-compatible server
+├── AGENTS.md                         # Development context
 ├── README.md                         # Project documentation
 ├── requirements.txt                  # Python dependencies
-└── video-test/                       # Test video files
+└── tests/                            # Backend unit tests
 ```
 
 ---

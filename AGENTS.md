@@ -39,10 +39,6 @@ frontend/ Next.js production UI
   ├─ /video: upload analysis, live stream + captions panels
   └─ /rtsp: live monitoring, MJPEG preview + captions panels
 
-web/ Streamlit UI (legacy)
-  ├─ video mode: upload local video, stream captions over SSE
-  └─ rtsp mode: start camera session, show MJPEG preview + WebSocket captions
-
 backend/app/ FastAPI
   ├─ /api/v1/analyze: uploaded-video JSON result
   ├─ /api/v1/analyze/stream: uploaded-video SSE result
@@ -101,7 +97,7 @@ InsightCap/
 │   ├── tailwind.config.ts           # Tailwind + design tokens
 │   └── package.json                 # Webpack dev server on port 3060
 │
-├── backend/                          # New FastAPI + core backend package
+├── backend/                          # FastAPI + core backend package
 │   ├── app/
 │   │   ├── main.py                   # App setup, CORS, routers, health, RTSP shutdown hook
 │   │   ├── api/v1/routes/            # System, analyze, and RTSP routes
@@ -115,23 +111,6 @@ InsightCap/
 │       ├── video/                    # OpenCV file and RTSP readers, sampler
 │       ├── inference/                # CaptionBackend and vLLM backend
 │       └── prompt/                   # PromptBuilder
-│
-├── api/                              # Legacy pre-restructure FastAPI layer
-├── insightcap/                       # Legacy pre-restructure core package
-│
-├── web/                              # Deprecated Streamlit interface
-│   ├── app.py                        # Mode selector, video mode, RTSP mode, layout, styling
-│   ├── components/
-│   │   ├── sidebar.py                # Video upload controls and RTSP session controls
-│   │   ├── streaming_panel.py        # Uploaded-video stream/status panel
-│   │   ├── results_panel.py          # Uploaded-video captions, summary, export UI
-│   │   └── rtsp_panel.py             # RTSP MJPEG preview and WebSocket captions panel
-│   ├── utils/
-│   │   ├── api_client.py             # FastAPI HTTP client
-│   │   ├── state_manager.py          # Streamlit session-state helpers
-│   │   └── prompts.py                # Prompt presets/helpers
-│   └── .streamlit/
-│       └── config.toml               # Streamlit theme config
 │
 ├── tests/
 │   └── test_vllm_backend.py          # Unit tests for vLLM backend and backend factory
@@ -153,7 +132,7 @@ InsightCap/
 
 - Frontend production UI integration in `frontend/` (Next.js multi-page architecture).
 - vLLM-first inference service development.
-- Backend package restructure in `backend/`.
+- Backend package cleanup in `backend/`.
 
 ### Current Problems
 
@@ -186,7 +165,6 @@ InsightCap/
 - FastAPI entrypoint is `backend.app.main:app`.
 - FastAPI includes system, analyze, and RTSP routers.
 - RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, and WebSocket events.
-- Streamlit (`web/`) retained as deprecated legacy interface during transition.
 
 ---
 
@@ -198,7 +176,6 @@ InsightCap/
 - **vLLM Base URL**: `http://localhost:8060/v1`
 - **vLLM Docker Service**: `insightcap-vllm`
 - **API Port**: `6060`
-- **Streamlit Port**: `8501`
 - **Frontend Port**: `3060`
 - **Main API Docs**: `API.md`
 - **Architecture Docs**: `ARCHITECTURE.md`

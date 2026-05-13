@@ -1,7 +1,9 @@
 # Backend Restructure + Frontend Integration Plan
 
 ## Summary
-Buat struktur backend baru di `backend/`, copy dulu logic lama dari `api/` dan `insightcap/`, lalu integrasikan Next.js `frontend/` langsung ke FastAPI. Streamlit `web/` tidak dihapus pada fase ini, tapi dikeluarkan dari workflow utama dan ditandai deprecated.
+Buat struktur backend baru di `backend/`, migrasikan logic ke package aktif, lalu integrasikan Next.js `frontend/` langsung ke FastAPI.
+
+Superseded note: cleanup berikutnya menghapus package dan UI lama; stack aktif sekarang hanya `frontend/`, `backend/`, dan Docker vLLM.
 
 Runtime target:
 - vLLM: `docker compose up vllm`
@@ -49,10 +51,9 @@ backend/
 Endpoint publik tetap sama. vLLM tetap di `docker-compose.yml` root-level, service `vllm`, port `8060`, served model `qwen3.5:0.8b`.
 
 ## Implementation Notes
-- Copy `api/` dan `insightcap/` ke struktur baru dulu.
+- Migrasikan route dan core engine ke struktur `backend.app.*` dan `backend.core.*`.
 - Update import ke `backend.app.*` dan `backend.core.*`.
 - Ganti frontend mock simulation dengan FastAPI direct calls via `NEXT_PUBLIC_API_BASE_URL`.
-- Streamlit `web/` ditandai legacy/deprecated, tidak dihapus.
 
 ## Test Plan
 Backend:
