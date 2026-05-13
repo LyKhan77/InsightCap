@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import type { Theme } from "./types";
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light";
+    const saved = window.localStorage.getItem("insightcap-theme");
+    return saved === "light" || saved === "dark" ? saved : "light";
+  });
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("insightcap-theme");
-    if (saved === "light" || saved === "dark") {
-      setThemeState(saved);
-      document.documentElement.dataset.theme = saved;
-    }
-  }, []);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   function setTheme(next: Theme) {
     setThemeState(next);

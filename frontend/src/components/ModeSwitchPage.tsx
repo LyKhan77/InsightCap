@@ -100,7 +100,7 @@ export function ModeSwitchPage({ theme, onThemeChange }: ModeSwitchPageProps) {
 
       {/* Footer */}
       <footer className="mx-auto max-w-[1440px] px-5 pb-8 font-mono text-xs text-ink-muted md:px-8">
-        Mock data active. Backend integration pending.
+        FastAPI backend integration active.
       </footer>
     </main>
   );

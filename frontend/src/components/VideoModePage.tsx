@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VIDEO_PROMPT_PRESETS } from "@/data/prompts";
-import { DUMMY_SUMMARY, VIDEO_SAMPLE_CAPTIONS } from "@/lib/dummy-data";
 import type { CaptionRow, Theme, VideoMetadata, VideoStatus } from "@/lib/types";
+import { streamVideoAnalysis } from "@/lib/video-stream";
 import { ControlDrawer } from "./ControlDrawer";
 import { PageHeader } from "./PageHeader";
 import { VideoControls } from "./VideoControls";
@@ -14,12 +14,19 @@ const DEFAULT_MODEL = "qwen3.5:0.8b";
 
 export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeChange: (t: Theme) => void }) {
   const router = useRouter();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>("idle");
   const [videoCaptions, setVideoCaptions] = useState<CaptionRow[]>([]);
   const [finalCaption, setFinalCaption] = useState<string | null>(null);
+  const [videoMetadata, setVideoMetadata] = useState<VideoMetadata>({
+    frameCount: 0,
+    durationSeconds: 0,
+    deviceUsed: "--",
+    modelId: DEFAULT_MODEL,
+  });
   const [videoPreset, setVideoPreset] = useState("default");
   const [videoCustomPrompts, setVideoCustomPrompts] = useState(false);
   const [videoFramePrompt, setVideoFramePrompt] = useState(
@@ -40,11 +47,24 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
     };
   }, [fileUrl]);
 
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   function handleVideoFileChange(file: File | null) {
+    abortControllerRef.current?.abort();
     setVideoFile(file);
     setVideoStatus(file ? "ready" : "idle");
     setVideoCaptions([]);
     setFinalCaption(null);
+    setVideoMetadata({
+      frameCount: 0,
+      durationSeconds: 0,
+      deviceUsed: "--",
+      modelId: model,
+    });
   }
 
   function handlePresetChange(presetName: string) {
@@ -65,35 +85,84 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
     }
   }
 
-  function startVideoSimulation() {
+  async function startVideoAnalysis() {
     if (!videoFile || videoStatus === "analyzing") return;
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     setVideoStatus("initializing");
     setVideoCaptions([]);
     setFinalCaption(null);
+    setVideoMetadata({
+      frameCount: 0,
+      durationSeconds: 0,
+      deviceUsed: "--",
+      modelId: model,
+    });
 
-    window.setTimeout(() => {
-      setVideoStatus("analyzing");
-      VIDEO_SAMPLE_CAPTIONS.forEach((caption, index) => {
-        window.setTimeout(() => {
-          setVideoCaptions((current) => [...current, caption]);
-          if (index === VIDEO_SAMPLE_CAPTIONS.length - 1) {
-            window.setTimeout(() => {
-              setFinalCaption(DUMMY_SUMMARY);
-              setVideoStatus("complete");
-            }, 650);
+    try {
+      await streamVideoAnalysis({
+        file: videoFile,
+        model,
+        framePrompt: videoFramePrompt,
+        summaryPrompt: videoSummaryPrompt,
+        signal: controller.signal,
+        onEvent: (event) => {
+          if (event.event === "init") {
+            setVideoStatus("analyzing");
+            setVideoMetadata((current) => ({
+              ...current,
+              frameCount: event.data.total_frames,
+              durationSeconds: event.data.duration_seconds,
+            }));
           }
-        }, index * 650);
-      });
-    }, 650);
-  }
 
-  const videoMetadata: VideoMetadata = {
-    frameCount: videoCaptions.length,
-    durationSeconds: videoFile ? 4.8 : 0,
-    deviceUsed: "dummy",
-    modelId: model,
-  };
+          if (event.event === "frame") {
+            setVideoCaptions((current) => [
+              ...current,
+              {
+                id: `video-frame-${event.data.index}-${Date.now()}`,
+                frame: event.data.index + 1,
+                caption: event.data.caption,
+                meta: `${event.data.timestamp_seconds.toFixed(1)}s`,
+                kind: "caption",
+              },
+            ]);
+          }
+
+          if (event.event === "summary") {
+            setFinalCaption(event.data.caption);
+          }
+
+          if (event.event === "done") {
+            setVideoMetadata({
+              frameCount: event.data.frame_count,
+              durationSeconds: event.data.duration_seconds,
+              deviceUsed: event.data.device_used,
+              modelId: event.data.model_id,
+            });
+            setVideoStatus("complete");
+          }
+        },
+      });
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setVideoStatus("ready");
+      setVideoCaptions((current) => [
+        ...current,
+        {
+          id: `video-error-${Date.now()}`,
+          frame: current.length + 1,
+          caption: error instanceof Error ? error.message : "Video analysis failed.",
+          kind: "warning",
+        },
+      ]);
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
+    }
+  }
 
   return (
     <main data-theme={theme} className="flex min-h-screen flex-col bg-canvas text-ink">
@@ -110,7 +179,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
               videoFileName={videoFile?.name ?? null}
               onVideoFileChange={handleVideoFileChange}
               videoStatus={videoStatus}
-              onStartVideo={startVideoSimulation}
+              onStartVideo={startVideoAnalysis}
               videoPreset={videoPreset}
               onVideoPresetChange={handlePresetChange}
               videoCustomPrompts={videoCustomPrompts}
@@ -136,7 +205,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
       </section>
 
       <footer className="mx-auto w-full max-w-[1440px] px-5 pb-6 font-mono text-xs text-ink-muted md:px-8">
-        Mock data active. Backend integration pending.
+        Connected to FastAPI backend at port 6060.
       </footer>
     </main>
   );

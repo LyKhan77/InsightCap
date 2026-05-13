@@ -1,0 +1,93 @@
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:6060";
+
+function apiUrl(path: string) {
+  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function wsUrl(path: string) {
+  const url = new URL(apiUrl(path));
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+}
+
+export type RtspSessionResponse = {
+  session_id: string;
+  session_name: string;
+  status: string;
+  source: string;
+  model_id: string;
+  sample_every_seconds: number;
+  started_at: string | null;
+  last_event_at: string | null;
+  last_caption: string | null;
+  captions_emitted: number;
+  reconnect_count: number;
+  lag_ms: number | null;
+  last_error: string | null;
+};
+
+export type RtspSessionCreateRequest = {
+  rtsp_url: string;
+  model: string;
+  sample_every_seconds: number;
+  session_name?: string;
+  frame_prompt?: string;
+};
+
+export type RtspEvent = {
+  event: string;
+  session_id: string;
+  emitted_at: string | null;
+  data: Record<string, unknown>;
+};
+
+export function analyzeStreamUrl() {
+  return apiUrl("/api/v1/analyze/stream");
+}
+
+export async function createRtspSession(
+  request: RtspSessionCreateRequest,
+): Promise<RtspSessionResponse> {
+  const response = await fetch(apiUrl("/api/v1/rtsp/sessions"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function deleteRtspSession(sessionId: string): Promise<RtspSessionResponse> {
+  const response = await fetch(apiUrl(`/api/v1/rtsp/sessions/${sessionId}`), {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
+}
+
+export function rtspPreviewMjpegUrl(sessionId: string) {
+  return apiUrl(`/api/v1/rtsp/sessions/${sessionId}/preview.mjpeg`);
+}
+
+export function rtspEventsUrl(sessionId: string) {
+  return wsUrl(`/api/v1/rtsp/sessions/${sessionId}/events`);
+}
+
+async function readApiError(response: Response) {
+  try {
+    const payload = await response.json();
+    if (typeof payload.detail === "string") return payload.detail;
+    return JSON.stringify(payload);
+  } catch {
+    return `${response.status} ${response.statusText}`.trim();
+  }
+}

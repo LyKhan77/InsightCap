@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ModeSwitchPage } from "@/components/ModeSwitchPage";
 import { useTheme } from "@/lib/use-theme";
 

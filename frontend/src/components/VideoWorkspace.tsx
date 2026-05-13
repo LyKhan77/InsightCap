@@ -69,8 +69,8 @@ export function VideoWorkspace({
               <div className="mt-2 flex items-center justify-between gap-4">
                 <p className="text-sm leading-6 text-ink">
                   {status === "idle" && "Waiting for a file."}
-                  {status === "ready" && "Ready to run local analysis simulation."}
-                  {status === "initializing" && "Reading local video metadata."}
+                  {status === "ready" && "Ready to run backend analysis."}
+                  {status === "initializing" && "Uploading video and reading metadata."}
                   {status === "analyzing" && "Streaming sampled frame captions."}
                   {status === "complete" && "Analysis complete. Summary and export are available."}
                 </p>
