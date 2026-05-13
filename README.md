@@ -73,7 +73,7 @@ npm install
 npm run dev
 ```
 
-Access the production frontend prototype at **http://localhost:3000**
+Access the production frontend prototype at **http://localhost:3060**
 
 For background mode after the vLLM image is fully downloaded:
 
