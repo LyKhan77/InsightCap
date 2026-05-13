@@ -49,7 +49,7 @@ curl http://localhost:8060/health
 
 # Terminal 2: Start API server
 source env/bin/activate
-uvicorn backend.app.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 6060
 
 # Confirm API sees vLLM:
 curl http://localhost:6060/health
@@ -57,7 +57,7 @@ curl http://localhost:6060/health
 # Terminal 3: Start Next.js frontend
 cd frontend
 npm install
-npm run dev
+npm run dev -- --hostname 0.0.0.0
 ```
 
 Access the production frontend at **http://localhost:3060**.
@@ -70,10 +70,10 @@ docker compose up -d vllm
 
 # Terminal 2: API
 source env/bin/activate
-uvicorn backend.app.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 6060
 
 # Terminal 3: Frontend
-cd frontend && npm run dev
+cd frontend && npm run dev -- --hostname 0.0.0.0
 ```
 
 ---

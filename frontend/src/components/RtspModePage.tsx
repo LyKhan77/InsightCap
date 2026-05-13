@@ -31,6 +31,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
   const [rtspStatus, setRtspStatus] = useState<RtspStatus>("idle");
   const [rtspCaptions, setRtspCaptions] = useState<CaptionRow[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
   const [rtspMetadata, setRtspMetadata] = useState<RtspMetadata>({
     status: "idle",
     captionsEmitted: 0,
@@ -50,6 +51,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
     websocketRef.current = null;
     sessionIdRef.current = null;
     setPreviewUrl(null);
+    setStreamError(null);
 
     if (sessionId) {
       try {
@@ -119,6 +121,8 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
       reconnectCount: 0,
     });
     setRtspCaptions([]);
+    setPreviewUrl(null);
+    setStreamError(null);
 
     try {
       const session = await createRtspSession({
@@ -164,6 +168,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
         });
       };
       socket.onerror = () => {
+        setStreamError("RTSP event stream connection failed.");
         setRtspCaptions((current) => [
           ...current,
           {
@@ -178,14 +183,17 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
         websocketRef.current = null;
       };
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to start RTSP monitoring.";
       setRtspStatus("stopped");
       setRtspMetadata((current) => ({ ...current, status: "stopped" }));
+      setPreviewUrl(null);
+      setStreamError(message);
       setRtspCaptions((current) => [
         ...current,
         {
           id: `rtsp-start-error-${Date.now()}`,
           frame: current.length + 1,
-          caption: error instanceof Error ? error.message : "Failed to start RTSP monitoring.",
+          caption: message,
           kind: "warning",
         },
       ]);
@@ -238,6 +246,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
           sessionName={rtspSessionName}
           source={rtspUrl}
           previewUrl={previewUrl}
+          streamError={streamError}
           captions={rtspCaptions}
           metadata={rtspMetadata}
         />

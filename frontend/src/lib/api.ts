@@ -1,5 +1,13 @@
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:6060";
+export const API_BASE_URL = resolveApiBaseUrl();
+
+function resolveApiBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+  if (configured) return configured;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:6060`;
+  }
+  return "http://localhost:6060";
+}
 
 function apiUrl(path: string) {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;

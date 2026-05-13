@@ -42,7 +42,7 @@ Aktifkan environment lalu jalankan server:
 
 ```bash
 source env/bin/activate
-uvicorn backend.app.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 6060
 ```
 
 Sebelum menjalankan API, pastikan vLLM aktif:
@@ -371,7 +371,7 @@ curl http://localhost:6060/health
 
 Solusi:
 
-- pastikan `uvicorn backend.app.main:app --reload --port 6060` sedang berjalan
+- pastikan `uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 6060` sedang berjalan
 - pastikan port `6060` tidak dipakai service lain
 
 ### 2. vLLM belum aktif

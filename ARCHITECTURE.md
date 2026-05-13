@@ -662,10 +662,10 @@ RTSP Mode:  One worker thread per session
 docker compose up vllm
 
 # Terminal 2: API Server
-uvicorn backend.app.main:app --reload --port 6060
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 6060
 
 # Terminal 3: Web App
-cd frontend && npm run dev
+cd frontend && npm run dev -- --hostname 0.0.0.0
 ```
 
 ### 10.2 Production Architecture (Recommended)
