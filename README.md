@@ -40,6 +40,16 @@ pip install -r requirements.txt
 
 ## Running the Full System
 
+Simple LAN/dev startup:
+
+```bash
+./scripts/dev-lan.sh
+```
+
+Then open the printed frontend URL, for example `http://192.168.x.x:3060`.
+
+Manual startup:
+
 ```bash
 # Terminal 1: Start vLLM service
 docker compose up vllm
