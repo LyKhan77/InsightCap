@@ -14,15 +14,20 @@ export function CaptionsPanel({
   finalCaption,
 }: CaptionsPanelProps) {
   return (
-    <section className="rounded-lg border border-hairline bg-canvas">
+    <section className="flex flex-col rounded-lg border border-hairline bg-canvas shadow-sm">
       <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
-        <h2 className="text-lg font-medium tracking-[-0.02em] text-ink">{title}</h2>
+        <div className="flex items-center gap-2">
+          {streaming && (
+            <span className="inline-block size-2 animate-pulse rounded-full bg-primary-deep" aria-hidden="true" />
+          )}
+          <h2 className="text-lg font-medium tracking-[-0.02em] text-ink">{title}</h2>
+        </div>
         <span className="font-mono text-xs uppercase tracking-wide text-ink-muted">
           {streaming ? "Streaming" : `${captions.length} rows`}
         </span>
       </div>
 
-      <div className="max-h-[420px] min-h-[280px] overflow-y-auto px-4 py-3">
+      <div className="flex-1 overflow-y-auto px-4 py-3" style={{ maxHeight: "calc(100vh - 340px)", minHeight: "320px" }}>
         {captions.length === 0 ? (
           <div className="flex min-h-[240px] items-center justify-center rounded-md border border-dashed border-hairline bg-canvas-soft text-center text-sm leading-6 text-ink-muted">
             Captions will appear here when the local simulation starts.

@@ -1,5 +1,10 @@
-import { InsightCapPrototype } from "@/components/InsightCapPrototype";
+"use client";
+
+import { useState } from "react";
+import { ModeSwitchPage } from "@/components/ModeSwitchPage";
+import { useTheme } from "@/lib/use-theme";
 
 export default function Home() {
-  return <InsightCapPrototype />;
+  const { theme, setTheme } = useTheme();
+  return <ModeSwitchPage theme={theme} onThemeChange={setTheme} />;
 }

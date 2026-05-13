@@ -20,13 +20,18 @@ export function RtspWorkspace({
   const live = metadata.status === "live" || metadata.status === "connecting";
 
   return (
-    <>
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.86fr)]">
-        <section className="rounded-lg border border-hairline bg-canvas">
+    <div className="grid gap-5">
+      <section className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+        <section className="rounded-lg border border-hairline bg-canvas shadow-sm">
           <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
-            <h1 className="text-lg font-medium tracking-[-0.02em] text-ink">
-              Live stream
-            </h1>
+            <div className="flex items-center gap-2">
+              {live && (
+                <span className="inline-block size-2 animate-pulse rounded-full bg-primary-deep" aria-hidden="true" />
+              )}
+              <h1 className="text-lg font-medium tracking-[-0.02em] text-ink">
+                Live stream
+              </h1>
+            </div>
             <StatusBadge label={live ? "camera online" : "camera idle"} tone={live ? "online" : "idle"} />
           </div>
 
@@ -84,6 +89,6 @@ export function RtspWorkspace({
           { label: "Model", value: metadata.modelId },
         ]}
       />
-    </>
+    </div>
   );
 }

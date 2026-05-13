@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "InsightCap Frontend",
-  description: "Production UI prototype for InsightCap video and RTSP captioning.",
+  title: "InsightCap — Dashboard Live Captioning",
+  description: "Video and RTSP captioning system with live monitoring.",
 };
 
 export default function RootLayout({

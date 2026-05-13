@@ -24,14 +24,21 @@ export function VideoWorkspace({
 }: VideoWorkspaceProps) {
   const canExport = status === "complete" && finalCaption;
 
+  const isStreaming = status === "analyzing" || status === "initializing";
+
   return (
-    <>
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.86fr)]">
-        <section className="rounded-lg border border-hairline bg-canvas">
+    <div className="grid gap-5">
+      <section className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+        <section className="rounded-lg border border-hairline bg-canvas shadow-sm">
           <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
-            <h1 className="text-lg font-medium tracking-[-0.02em] text-ink">
-              Live stream
-            </h1>
+            <div className="flex items-center gap-2">
+              {isStreaming && (
+                <span className="inline-block size-2 animate-pulse rounded-full bg-primary-deep" aria-hidden="true" />
+              )}
+              <h1 className="text-lg font-medium tracking-[-0.02em] text-ink">
+                Live stream
+              </h1>
+            </div>
             <span className="font-mono text-xs uppercase tracking-wide text-ink-muted">
               {fileName ?? "No file"}
             </span>
@@ -88,7 +95,7 @@ export function VideoWorkspace({
 
         <CaptionsPanel
           captions={captions}
-          streaming={status === "analyzing" || status === "initializing"}
+          streaming={isStreaming}
           finalCaption={finalCaption ?? undefined}
         />
       </section>
@@ -101,6 +108,6 @@ export function VideoWorkspace({
           { label: "Model", value: metadata.modelId },
         ]}
       />
-    </>
+    </div>
   );
 }
