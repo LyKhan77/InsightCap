@@ -46,8 +46,8 @@ export function PageHeader({
         </div>
 
         <div className="flex items-center gap-3">
-          <StatusBadge label="API dummy mode" tone="warning" />
-          <StatusBadge label="vLLM backend reserved" tone="idle" />
+          <StatusBadge label="FastAPI connected" tone="online" />
+          <StatusBadge label="vLLM backend" tone="idle" />
 
           <button
             type="button"

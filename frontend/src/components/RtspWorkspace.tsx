@@ -7,6 +7,7 @@ import { StatusBadge } from "./StatusBadge";
 type RtspWorkspaceProps = {
   sessionName: string;
   source: string;
+  previewUrl: string | null;
   captions: CaptionRow[];
   metadata: RtspMetadata;
 };
@@ -14,6 +15,7 @@ type RtspWorkspaceProps = {
 export function RtspWorkspace({
   sessionName,
   source,
+  previewUrl,
   captions,
   metadata,
 }: RtspWorkspaceProps) {
@@ -37,18 +39,27 @@ export function RtspWorkspace({
 
           <div className="p-4">
             <div className="relative overflow-hidden rounded-lg border border-hairline bg-canvas-night shadow-mockup">
-              <div className="aspect-video bg-[linear-gradient(90deg,#1c1c1c_0,#202020_50%,#1c1c1c_100%)] p-5">
-                <div className="grid h-full grid-cols-6 gap-3">
-                  {Array.from({ length: 18 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className={`rounded-sm border border-white/10 ${
-                        index % 5 === 0 ? "bg-primary/70" : "bg-white/10"
-                      }`}
-                    />
-                  ))}
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- MJPEG streams require a plain browser image element.
+                <img
+                  src={previewUrl}
+                  alt="RTSP live preview"
+                  className="aspect-video w-full bg-canvas-night object-contain"
+                />
+              ) : (
+                <div className="aspect-video bg-[linear-gradient(90deg,#1c1c1c_0,#202020_50%,#1c1c1c_100%)] p-5">
+                  <div className="grid h-full grid-cols-6 gap-3">
+                    {Array.from({ length: 18 }).map((_, index) => (
+                      <div
+                        key={index}
+                        className={`rounded-sm border border-white/10 ${
+                          index % 5 === 0 ? "bg-primary/70" : "bg-white/10"
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 border-t border-white/10 bg-canvas-night/95 p-4 text-white">
                 <div>
                   <div className="font-mono text-xs uppercase tracking-wide text-white/60">
@@ -56,7 +67,7 @@ export function RtspWorkspace({
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-sm">
                     <Camera className="size-4" aria-hidden="true" />
-                    MJPEG preview bridge mock
+                    MJPEG preview bridge
                   </div>
                 </div>
                 <Radio className="size-5 text-primary" aria-hidden="true" />
