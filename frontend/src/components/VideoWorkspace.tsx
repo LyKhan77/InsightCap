@@ -6,6 +6,8 @@ import { Button } from "./Button";
 import { CaptionsPanel } from "./CaptionsPanel";
 import { MetadataStrip } from "./MetadataStrip";
 
+type DisplayPhase = "idle" | "ready" | "uploading" | "analyzing" | "summarizing" | "complete";
+
 type VideoWorkspaceProps = {
   fileName: string | null;
   fileUrl: string | null;
@@ -13,6 +15,10 @@ type VideoWorkspaceProps = {
   captions: CaptionRow[];
   finalCaption: string | null;
   metadata: VideoMetadata;
+  videoCurrentTime: number;
+  backendFinished: boolean;
+  videoPlaying: boolean;
+  videoEnded: boolean;
 };
 
 export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(function VideoWorkspace({
@@ -22,10 +28,47 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
   captions,
   finalCaption,
   metadata,
+<<<<<<< HEAD
 }: VideoWorkspaceProps, videoRef) {
   const canExport = status === "complete" && finalCaption;
+=======
+  videoCurrentTime,
+  backendFinished,
+  videoPlaying,
+  videoEnded,
+}: VideoWorkspaceProps, videoRef) {
+  const visibleCaptions = videoEnded
+    ? captions
+    : captions.filter((c) => {
+        if (c.timestampEnd == null) return true;
+        return c.timestampEnd <= videoCurrentTime + 1;
+      });
+>>>>>>> feat/chucking-frame
 
-  const isStreaming = status === "analyzing" || status === "initializing";
+  const allRevealed = visibleCaptions.length === captions.length && captions.length > 0;
+
+  const phase: DisplayPhase = (() => {
+    if (status === "idle") return "idle";
+    if (status === "ready") return "ready";
+    if (status === "initializing") return "uploading";
+    if (allRevealed && finalCaption) return "complete";
+    if (allRevealed && backendFinished) return "summarizing";
+    return "analyzing";
+  })();
+
+  const isStreaming = phase === "analyzing" || phase === "uploading" || phase === "summarizing";
+
+  const pipelineText: Record<DisplayPhase, string> = {
+    idle: "Waiting for a file.",
+    ready: "Ready to run backend analysis.",
+    uploading: "Uploading video and reading metadata...",
+    analyzing: `Streaming segment captions... (${visibleCaptions.length}/${captions.length} revealed)`,
+    summarizing: "Generating summary...",
+    complete: "Analysis complete. Summary and export available.",
+  };
+
+  const showExport = phase === "complete";
+  const showFinalCaption = phase === "complete";
 
   return (
     <div className="grid gap-5">
@@ -51,7 +94,11 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
                 <video
                   ref={videoRef}
                   src={fileUrl}
+<<<<<<< HEAD
                   controls={status !== "analyzing" && status !== "initializing"}
+=======
+                  controls={status === "initializing" || (status === "analyzing" && !backendFinished)}
+>>>>>>> feat/chucking-frame
                   playsInline
                   preload="auto"
                   className="aspect-video w-full bg-canvas-night object-contain"
@@ -72,13 +119,17 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
               </div>
               <div className="mt-2 flex items-center justify-between gap-4">
                 <p className="text-sm leading-6 text-ink">
+<<<<<<< HEAD
                   {status === "idle" && "Waiting for a file."}
                   {status === "ready" && "Ready to run backend analysis."}
                   {status === "initializing" && "Uploading video and reading metadata."}
                   {status === "analyzing" && "Streaming sampled segment captions."}
                   {status === "complete" && "Analysis complete. Summary and export are available."}
+=======
+                  {pipelineText[phase]}
+>>>>>>> feat/chucking-frame
                 </p>
-                {canExport ? (
+                {showExport && finalCaption ? (
                   <Button
                     variant="secondary"
                     icon={<Download className="size-4" aria-hidden="true" />}
@@ -98,9 +149,9 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
         </section>
 
         <CaptionsPanel
-          captions={captions}
-          streaming={isStreaming}
-          finalCaption={finalCaption ?? undefined}
+          captions={visibleCaptions}
+          streaming={phase === "analyzing" || phase === "uploading" || phase === "summarizing"}
+          finalCaption={showFinalCaption ? (finalCaption ?? undefined) : undefined}
         />
       </section>
 

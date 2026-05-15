@@ -107,6 +107,10 @@ Parameter opsional:
 - `frame_prompt`: Custom prompt untuk deskripsi setiap frame
 - `summary_prompt`: Custom prompt untuk ringkasan video
 
+Perilaku fallback video pendek:
+- Jika hasil sampling <10 frame, backend menganalisis seluruh sampled frame sebagai satu segmen video pendek.
+- Response tetap kompatibel: `frame_count` tetap jumlah sampled frame asli, sedangkan `frame_captions` berisi 1 caption gabungan.
+
 Contoh dengan custom prompts:
 ```bash
 curl -X POST http://localhost:6060/api/v1/analyze \
@@ -155,6 +159,10 @@ Urutan event utama:
 - `summary`
 - `done`
 
+Perilaku fallback video pendek:
+- Jika hasil sampling <10 frame, event `frame` hanya dikirim 1 kali (`index: 0`) sebagai caption gabungan video pendek.
+- Kontrak event tetap sama; frontend lama tetap kompatibel.
+
 Contoh format:
 
 ```text
@@ -162,7 +170,7 @@ event: init
 data: {"total_frames": 12, "video_fps": 30.0, "duration_seconds": 12.4}
 
 event: frame
-data: {"index": 0, "caption": "...", "timestamp_seconds": 0.0}
+data: {"index": 0, "caption": "...", "timestamp_seconds": 0.0, "timestamp_end_seconds": 9.0, "sampled_frame_count": 10, "frame_index_start": 0, "frame_index_end": 9}
 
 event: summary
 data: {"caption": "..."}
