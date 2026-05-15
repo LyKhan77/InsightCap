@@ -108,15 +108,10 @@ and direct FastAPI integration:
 3. Click `[ INITIATE_ANALYSIS ]`
 4. Frontend posts to `/api/v1/analyze/stream`
 5. Backend emits `init`, one `frame` event per 10 sampled-frame segment, `summary`, and `done` SSE events
-<<<<<<< HEAD
-6. Pipeline stops automatically when video duration is reached
-7. Final narrative summary appears; video controls restored
-=======
 6. Video auto-plays; captions reveal progressively as video reaches each segment's time range
 7. Pipeline state shows phase: uploading → analyzing (X/Y revealed) → summarizing → complete
 8. Final summary and export button appear after all captions are revealed
 9. Video controls re-enabled once backend finishes, allowing seek while captions continue revealing
->>>>>>> feat/chucking-frame
 
 No FPS or frame interval config needed — sampling is auto-computed from the video.
 
