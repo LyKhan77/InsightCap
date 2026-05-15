@@ -1,7 +1,8 @@
 import { FileVideo2, Upload } from "lucide-react";
 import { VIDEO_PROMPT_PRESETS } from "@/data/prompts";
-import type { VideoStatus } from "@/lib/types";
+import type { AutoLabelConfig, AutoLabelStatus, VideoStatus } from "@/lib/types";
 import { Button } from "./Button";
+import { AutoLabelControls } from "./AutoLabelControls";
 import { PromptEditor } from "./PromptEditor";
 
 type VideoControlsProps = {
@@ -19,6 +20,9 @@ type VideoControlsProps = {
   onVideoFramePromptChange: (value: string) => void;
   videoSummaryPrompt: string;
   onVideoSummaryPromptChange: (value: string) => void;
+  autoLabelConfig: AutoLabelConfig;
+  onAutoLabelConfigChange: (value: AutoLabelConfig) => void;
+  autoLabelStatus: AutoLabelStatus;
 };
 
 export function VideoControls(props: VideoControlsProps) {
@@ -113,6 +117,12 @@ export function VideoControls(props: VideoControlsProps) {
           />
         </div>
       )}
+
+      <AutoLabelControls
+        config={props.autoLabelConfig}
+        onConfigChange={props.onAutoLabelConfigChange}
+        status={props.autoLabelStatus}
+      />
 
       {/* Action */}
       <div className="border-t border-hairline pt-4">

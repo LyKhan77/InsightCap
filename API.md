@@ -20,6 +20,7 @@ Fungsi utama API:
 - membuat session monitoring RTSP secara live
 - mengirim event caption RTSP secara real-time via WebSocket
 - menyediakan preview stream RTSP yang ramah browser melalui MJPEG bridge
+- menjalankan Auto-Labelling opsional dengan YOLO-World untuk membuat pseudo-label bbox dataset
 - menyediakan health check untuk status server dan device inferensi
 
 ## Base URL
@@ -61,10 +62,13 @@ vLLM melayani model Hugging Face `Qwen/Qwen3.5-0.8B` dengan alias kompatibel `qw
 | `GET` | `/health` | Health check + device |
 | `POST` | `/api/v1/analyze` | Analisis video upload, hasil JSON penuh |
 | `POST` | `/api/v1/analyze/stream` | Analisis video upload, hasil streaming SSE |
+| `GET` | `/api/v1/auto-label/overlay?path=...` | Preview annotated overlay Auto-Labelling |
 | `POST` | `/api/v1/rtsp/sessions` | Membuat session monitoring RTSP |
 | `GET` | `/api/v1/rtsp/sessions` | List session RTSP |
 | `GET` | `/api/v1/rtsp/sessions/{session_id}` | Detail status session RTSP |
 | `DELETE` | `/api/v1/rtsp/sessions/{session_id}` | Menghentikan session RTSP |
+| `POST` | `/api/v1/rtsp/sessions/{session_id}/auto-label/start` | Mulai Auto-Labelling RTSP tanpa restart monitoring |
+| `POST` | `/api/v1/rtsp/sessions/{session_id}/auto-label/stop` | Stop Auto-Labelling RTSP tanpa stop monitoring |
 | `GET` | `/api/v1/rtsp/sessions/{session_id}/preview.jpg` | Snapshot JPEG preview terbaru |
 | `GET` | `/api/v1/rtsp/sessions/{session_id}/preview.mjpeg` | Preview live MJPEG untuk browser |
 | `WS` | `/api/v1/rtsp/sessions/{session_id}/events` | Event caption live RTSP |
@@ -106,6 +110,11 @@ curl -X POST http://localhost:6060/api/v1/analyze \
 Parameter opsional:
 - `frame_prompt`: Custom prompt untuk deskripsi setiap frame
 - `summary_prompt`: Custom prompt untuk ringkasan video
+- `auto_label_enabled`: Aktifkan Auto-Labelling video
+- `auto_label_prompt`: Label target, pisahkan dengan koma atau baris baru, misalnya `person, hard hat`
+- `auto_label_duration_minutes`: Durasi maksimum labelling
+- `auto_label_confidence`: Threshold confidence YOLO-World
+- `auto_label_model`: Default `yolov8s-worldv2.pt`
 
 Perilaku fallback video pendek:
 - Jika hasil sampling <10 frame, backend menganalisis seluruh sampled frame sebagai satu segmen video pendek.
@@ -151,6 +160,11 @@ curl -X POST http://localhost:6060/api/v1/analyze/stream \
 Parameter opsional:
 - `frame_prompt`: Custom prompt untuk deskripsi setiap frame
 - `summary_prompt`: Custom prompt untuk ringkasan video
+- `auto_label_enabled`: Aktifkan Auto-Labelling video
+- `auto_label_prompt`: Label target, pisahkan dengan koma atau baris baru, misalnya `person, hard hat`
+- `auto_label_duration_minutes`: Durasi maksimum labelling
+- `auto_label_confidence`: Threshold confidence YOLO-World
+- `auto_label_model`: Default `yolov8s-worldv2.pt`
 
 Urutan event utama:
 
@@ -196,6 +210,7 @@ curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
 
 Parameter opsional:
 - `frame_prompt`: Custom prompt untuk deskripsi frame RTSP
+- `auto_label`: Konfigurasi Auto-Labelling awal; scheduler ini hanya mengontrol labelling, bukan monitoring RTSP
 
 Contoh dengan custom prompt:
 ```bash
@@ -206,7 +221,14 @@ curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
     "model": "qwen3.5:0.8b",
     "sample_every_seconds": 1.0,
     "session_name": "traffic-camera",
-    "frame_prompt": "Monitor traffic and count vehicles. Report vehicle colors precisely."
+    "frame_prompt": "Monitor traffic and count vehicles. Report vehicle colors precisely.",
+    "auto_label": {
+      "enabled": true,
+      "prompt": "person, motorcycle, car",
+      "duration_minutes": 10,
+      "confidence": 0.25,
+      "model": "yolov8s-worldv2.pt"
+    }
   }'
 ```
 
@@ -226,8 +248,45 @@ Contoh response:
   "captions_emitted": 0,
   "reconnect_count": 0,
   "lag_ms": null,
-  "last_error": null
+  "last_error": null,
+  "auto_label": {
+    "status": "idle",
+    "dataset_path": null,
+    "latest_overlay_path": null,
+    "frames_labelled": 0,
+    "frames_dropped": 0,
+    "chunks_enqueued": 0,
+    "remaining_seconds": null,
+    "last_error": null
+  }
 }
+```
+
+
+### Auto-Labelling RTSP
+
+Auto-Labelling RTSP bisa dimulai atau dihentikan tanpa menghentikan monitoring kamera:
+
+```bash
+curl -X POST http://localhost:6060/api/v1/rtsp/sessions/<session_id>/auto-label/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "prompt": "person, hard hat",
+    "duration_minutes": 5,
+    "confidence": 0.25,
+    "model": "yolov8s-worldv2.pt"
+  }'
+
+curl -X POST http://localhost:6060/api/v1/rtsp/sessions/<session_id>/auto-label/stop
+```
+
+Saat scheduler Auto-Labelling selesai, RTSP preview dan caption event tetap berjalan. Dataset ditulis ke `datasets/auto-label/rtsp/<session_id>/`.
+
+Generated overlay bisa dipreview lewat:
+
+```text
+http://localhost:6060/api/v1/auto-label/overlay?path=<latest_overlay_path>
 ```
 
 ### 5. Melihat Status Session RTSP
@@ -286,6 +345,9 @@ Event yang dapat diterima:
 - `heartbeat`
 - `stopped`
 - `error`
+- `auto_label_started`
+- `auto_label_frame`
+- `auto_label_done`
 
 Contoh event:
 

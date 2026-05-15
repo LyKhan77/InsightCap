@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Form, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Form, HTTPException, Query, UploadFile
+from fastapi.responses import Response, StreamingResponse
 
+from backend.app.schemas.auto_label import AutoLabelConfig
 from backend.app.schemas.video import AnalysisResponse, AnalyzeParams
+from backend.app.services.auto_label import DATASET_ROOT
 from backend.app.services.video_analysis import AnalysisService
 
 router = APIRouter()
@@ -44,16 +47,45 @@ def _temp_video(file: UploadFile):
             os.unlink(path)
 
 
+
+
+@router.get("/auto-label/overlay")
+async def get_auto_label_overlay(path: str = Query(...)) -> Response:
+    """Serve a generated annotated overlay image from the auto-label dataset root."""
+    root = DATASET_ROOT.resolve()
+    target = Path(path).resolve()
+    if root != target and root not in target.parents:
+        raise HTTPException(status_code=403, detail="Overlay path is outside the auto-label dataset root.")
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="Auto-label overlay is not available.")
+    return Response(content=target.read_bytes(), media_type="image/jpeg")
+
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze(
     file: UploadFile,
     model: Annotated[str, Form()] = "qwen3.5:0.8b",
     frame_prompt: Annotated[Optional[str], Form()] = None,
     summary_prompt: Annotated[Optional[str], Form()] = None,
+    auto_label_enabled: Annotated[bool, Form()] = False,
+    auto_label_prompt: Annotated[str, Form()] = "",
+    auto_label_duration_minutes: Annotated[float, Form()] = 5.0,
+    auto_label_confidence: Annotated[float, Form()] = 0.25,
+    auto_label_model: Annotated[str, Form()] = "yolov8s-worldv2.pt",
 ) -> AnalysisResponse:
     """Upload a video file and receive a full caption result as JSON."""
     _validate_video(file)
-    params = AnalyzeParams(model=model, frame_prompt=frame_prompt, summary_prompt=summary_prompt)
+    params = AnalyzeParams(
+        model=model,
+        frame_prompt=frame_prompt,
+        summary_prompt=summary_prompt,
+        auto_label=AutoLabelConfig(
+            enabled=auto_label_enabled,
+            prompt=auto_label_prompt,
+            duration_minutes=auto_label_duration_minutes,
+            confidence=auto_label_confidence,
+            model=auto_label_model,
+        ),
+    )
     try:
         with _temp_video(file) as path:
             return await _service.run(path, params)
@@ -67,13 +99,29 @@ async def analyze_stream(
     model: Annotated[str, Form()] = "qwen3.5:0.8b",
     frame_prompt: Annotated[Optional[str], Form()] = None,
     summary_prompt: Annotated[Optional[str], Form()] = None,
+    auto_label_enabled: Annotated[bool, Form()] = False,
+    auto_label_prompt: Annotated[str, Form()] = "",
+    auto_label_duration_minutes: Annotated[float, Form()] = 5.0,
+    auto_label_confidence: Annotated[float, Form()] = 0.25,
+    auto_label_model: Annotated[str, Form()] = "yolov8s-worldv2.pt",
 ) -> StreamingResponse:
     """Upload a video file and receive captions as Server-Sent Events.
 
     Events are emitted in real-time as each frame is captioned.
     """
     _validate_video(file)
-    params = AnalyzeParams(model=model, frame_prompt=frame_prompt, summary_prompt=summary_prompt)
+    params = AnalyzeParams(
+        model=model,
+        frame_prompt=frame_prompt,
+        summary_prompt=summary_prompt,
+        auto_label=AutoLabelConfig(
+            enabled=auto_label_enabled,
+            prompt=auto_label_prompt,
+            duration_minutes=auto_label_duration_minutes,
+            confidence=auto_label_confidence,
+            model=auto_label_model,
+        ),
+    )
 
     # Save the file to temp before streaming (UploadFile can't be read in a background thread)
     ext = os.path.splitext(file.filename or ".mp4")[1].lower() or ".mp4"

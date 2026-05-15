@@ -5,6 +5,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import Response, StreamingResponse
 
+from backend.app.schemas.auto_label import AutoLabelConfig, AutoLabelStatus
 from backend.app.schemas.rtsp import (
     RTSPErrorResponse,
     RTSPSessionCreateRequest,
@@ -73,6 +74,34 @@ async def delete_rtsp_session(session_id: str) -> RTSPSessionResponse:
         return rtsp_session_service.delete_session(session_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/sessions/{session_id}/auto-label/start",
+    response_model=AutoLabelStatus,
+    responses={404: {"model": RTSPErrorResponse}},
+)
+async def start_rtsp_auto_label(session_id: str, request: AutoLabelConfig) -> AutoLabelStatus:
+    """Start autonomous auto-labelling for a live RTSP session."""
+    try:
+        session = rtsp_session_service.get_session(session_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return session.start_auto_label(request)
+
+
+@router.post(
+    "/sessions/{session_id}/auto-label/stop",
+    response_model=AutoLabelStatus,
+    responses={404: {"model": RTSPErrorResponse}},
+)
+async def stop_rtsp_auto_label(session_id: str) -> AutoLabelStatus:
+    """Stop autonomous auto-labelling without stopping RTSP monitoring."""
+    try:
+        session = rtsp_session_service.get_session(session_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return session.stop_auto_label(drain=True)
 
 
 @router.get(

@@ -1,7 +1,8 @@
 import { Camera, Square } from "lucide-react";
 import { RTSP_PROMPT_PRESETS } from "@/data/prompts";
-import type { RtspStatus } from "@/lib/types";
+import type { AutoLabelConfig, AutoLabelStatus, RtspStatus } from "@/lib/types";
 import { Button } from "./Button";
+import { AutoLabelControls } from "./AutoLabelControls";
 import { PromptEditor } from "./PromptEditor";
 
 type RtspControlsProps = {
@@ -21,6 +22,10 @@ type RtspControlsProps = {
   onRtspCustomPromptChange: (value: boolean) => void;
   rtspFramePrompt: string;
   onRtspFramePromptChange: (value: string) => void;
+  autoLabelConfig: AutoLabelConfig;
+  onAutoLabelConfigChange: (value: AutoLabelConfig) => void;
+  autoLabelStatus: AutoLabelStatus;
+  onToggleAutoLabel: () => void;
 };
 
 export function RtspControls(props: RtspControlsProps) {
@@ -127,6 +132,14 @@ export function RtspControls(props: RtspControlsProps) {
           onChange={props.onRtspFramePromptChange}
         />
       )}
+
+      <AutoLabelControls
+        config={props.autoLabelConfig}
+        onConfigChange={props.onAutoLabelConfigChange}
+        status={props.autoLabelStatus}
+        disabled={!rtspLive}
+        onAction={props.onToggleAutoLabel}
+      />
 
       {/* Action */}
       <div className="border-t border-hairline pt-4">

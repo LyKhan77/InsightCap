@@ -16,11 +16,31 @@ export type VideoStatus = "idle" | "ready" | "initializing" | "analyzing" | "com
 
 export type RtspStatus = "idle" | "connecting" | "live" | "stopped";
 
+export type AutoLabelStatus = {
+  status: "idle" | "active" | "draining" | "done" | "error";
+  datasetPath: string | null;
+  latestOverlayPath: string | null;
+  framesLabelled: number;
+  framesDropped: number;
+  chunksEnqueued: number;
+  remainingSeconds: number | null;
+  lastError: string | null;
+};
+
+export type AutoLabelConfig = {
+  enabled: boolean;
+  prompt: string;
+  durationMinutes: number;
+  confidence: number;
+  model: string;
+};
+
 export type VideoMetadata = {
   frameCount: number;
   durationSeconds: number;
   deviceUsed: string;
   modelId: string;
+  autoLabel: AutoLabelStatus;
 };
 
 export type RtspMetadata = {
@@ -29,4 +49,5 @@ export type RtspMetadata = {
   lagMs: number | null;
   modelId: string;
   reconnectCount: number;
+  autoLabel: AutoLabelStatus;
 };

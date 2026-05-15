@@ -1,4 +1,6 @@
 import { analyzeStreamUrl } from "./api";
+import { autoLabelPayload } from "./auto-label";
+import type { AutoLabelConfig } from "./types";
 
 export type VideoStreamEvent =
   | {
@@ -36,7 +38,12 @@ export type VideoStreamEvent =
         model_id: string;
         video_fps?: number;
         frame_interval?: number;
+        auto_label?: unknown;
       };
+    }
+  | {
+      event: "auto_label_started" | "auto_label_frame" | "auto_label_done" | "auto_label_error";
+      data: unknown;
     };
 
 type StreamAnalysisInput = {
@@ -44,6 +51,7 @@ type StreamAnalysisInput = {
   model: string;
   framePrompt?: string;
   summaryPrompt?: string;
+  autoLabel?: AutoLabelConfig;
   signal?: AbortSignal;
   onEvent: (event: VideoStreamEvent) => void;
 };
@@ -54,6 +62,14 @@ export async function streamVideoAnalysis(input: StreamAnalysisInput) {
   formData.append("model", input.model);
   if (input.framePrompt) formData.append("frame_prompt", input.framePrompt);
   if (input.summaryPrompt) formData.append("summary_prompt", input.summaryPrompt);
+  if (input.autoLabel) {
+    const payload = autoLabelPayload(input.autoLabel);
+    formData.append("auto_label_enabled", String(payload.enabled));
+    formData.append("auto_label_prompt", payload.prompt);
+    formData.append("auto_label_duration_minutes", String(payload.duration_minutes));
+    formData.append("auto_label_confidence", String(payload.confidence));
+    formData.append("auto_label_model", payload.model);
+  }
 
   const response = await fetch(analyzeStreamUrl(), {
     method: "POST",

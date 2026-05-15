@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { Download, Play } from "lucide-react";
 import type { CaptionRow, VideoMetadata, VideoStatus } from "@/lib/types";
 import { buildAnalysisExport, downloadJson } from "@/lib/export";
+import { AutoLabelPanel } from "./AutoLabelPanel";
 import { Button } from "./Button";
 import { CaptionsPanel } from "./CaptionsPanel";
 import { MetadataStrip } from "./MetadataStrip";
@@ -17,7 +18,6 @@ type VideoWorkspaceProps = {
   metadata: VideoMetadata;
   videoCurrentTime: number;
   backendFinished: boolean;
-  videoPlaying: boolean;
   videoEnded: boolean;
 };
 
@@ -30,7 +30,6 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
   metadata,
   videoCurrentTime,
   backendFinished,
-  videoPlaying,
   videoEnded,
 }: VideoWorkspaceProps, videoRef) {
   const visibleCaptions = videoEnded
@@ -138,12 +137,17 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
         />
       </section>
 
+      <AutoLabelPanel status={metadata.autoLabel} />
+
       <MetadataStrip
         items={[
           { label: "Frames", value: metadata.frameCount },
           { label: "Duration", value: `${metadata.durationSeconds.toFixed(1)}s` },
           { label: "Device", value: metadata.deviceUsed },
           { label: "Model", value: metadata.modelId },
+          { label: "Auto Label", value: metadata.autoLabel.status },
+          { label: "Labelled", value: metadata.autoLabel.framesLabelled },
+          { label: "Dropped", value: metadata.autoLabel.framesDropped },
         ]}
       />
     </div>

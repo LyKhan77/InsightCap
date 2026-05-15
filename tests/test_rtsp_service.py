@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import numpy as np
 
+from backend.app.schemas.auto_label import AutoLabelConfig, AutoLabelStatus
 from backend.app.schemas.rtsp import RTSPSessionCreateRequest
 from backend.app.services.rtsp.session import RtspSession
 from backend.app.services.rtsp.utils import _mask_error_message, _mask_rtsp_url
@@ -20,6 +21,40 @@ class FakeSegmentBackend:
     def generate_for_frames(self, frames, prompt):
         self.calls.append((frames, prompt))
         yield f"segment {len(self.calls)}"
+
+
+
+
+class FakeAutoLabelJob:
+    def __init__(self, mode, job_id, config):
+        self.mode = mode
+        self.job_id = job_id
+        self.config = config
+        self.enqueued = []
+        self.started = False
+        self.status = "idle"
+
+    def start(self):
+        self.started = True
+        self.status = "active"
+
+    def stop(self, drain=True):
+        self.status = "done"
+
+    def join(self, timeout=None):
+        return None
+
+    def snapshot(self):
+        return AutoLabelStatus(
+            status=self.status,
+            frames_labelled=0,
+            frames_dropped=0,
+            chunks_enqueued=len(self.enqueued),
+        )
+
+    def enqueue_chunk(self, frames, segment_seq, caption, frame_seq_start, source):
+        self.enqueued.append((list(frames), segment_seq, caption, frame_seq_start, source))
+        return True
 
 
 class RtspServiceTest(unittest.TestCase):
@@ -105,6 +140,54 @@ class RtspServiceTest(unittest.TestCase):
 
         emit.assert_not_called()
         self.assertEqual(backend.calls, [])
+
+    def test_rtsp_auto_label_enqueues_completed_ten_frame_chunk(self):
+        backend = FakeSegmentBackend()
+        request = RTSPSessionCreateRequest(
+            rtsp_url="rtsp://admin:secret@192.168.0.64/stream",
+            session_name="Door",
+        )
+        with patch("backend.app.services.rtsp.session.get_backend", return_value=backend), patch(
+            "backend.app.services.rtsp.session.AutoLabelJob", FakeAutoLabelJob
+        ):
+            session = RtspSession("session-1", request)
+            session.start_auto_label(
+                AutoLabelConfig(enabled=True, prompt="person", duration_minutes=1, confidence=0.25)
+            )
+
+        with patch.object(session, "_emit"):
+            for frame_seq in range(1, 11):
+                frame = np.full((4, 4, 3), frame_seq, dtype=np.uint8)
+                session._process_sampled_live_frame(frame_seq, frame)
+
+        job = session._auto_label_job
+        self.assertIsNotNone(job)
+        self.assertEqual(len(job.enqueued), 1)
+        frames, segment_seq, caption, frame_seq_start, source = job.enqueued[0]
+        self.assertEqual(len(frames), 10)
+        self.assertEqual(segment_seq, 1)
+        self.assertEqual(caption, "segment 1")
+        self.assertEqual(frame_seq_start, 1)
+        self.assertIn("192.168.0.64", source)
+
+    def test_stopping_auto_label_does_not_stop_rtsp_monitoring_status(self):
+        backend = FakeSegmentBackend()
+        request = RTSPSessionCreateRequest(
+            rtsp_url="rtsp://admin:secret@192.168.0.64/stream",
+            session_name="Door",
+        )
+        with patch("backend.app.services.rtsp.session.get_backend", return_value=backend), patch(
+            "backend.app.services.rtsp.session.AutoLabelJob", FakeAutoLabelJob
+        ):
+            session = RtspSession("session-1", request)
+            session._set_status("running")
+            session.start_auto_label(
+                AutoLabelConfig(enabled=True, prompt="person", duration_minutes=1, confidence=0.25)
+            )
+            session.stop_auto_label(drain=True)
+
+        self.assertEqual(session.snapshot().status, "running")
+        self.assertEqual(session.snapshot().auto_label.status, "done")
 
 
 if __name__ == "__main__":

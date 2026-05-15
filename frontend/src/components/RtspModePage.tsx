@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RTSP_PROMPT_PRESETS } from "@/data/prompts";
+import { DEFAULT_AUTO_LABEL_CONFIG, DEFAULT_AUTO_LABEL_STATUS, autoLabelPayload, normalizeAutoLabelStatus } from "@/lib/auto-label";
 import {
   createRtspSession,
   deleteRtspSession,
+  startRtspAutoLabel,
+  stopRtspAutoLabel,
   rtspEventsUrl,
   rtspPreviewMjpegUrl,
   type RtspEvent,
@@ -34,12 +37,14 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewReady, setPreviewReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [autoLabelConfig, setAutoLabelConfig] = useState(DEFAULT_AUTO_LABEL_CONFIG);
   const [rtspMetadata, setRtspMetadata] = useState<RtspMetadata>({
     status: "idle",
     captionsEmitted: 0,
     lagMs: null,
     modelId: DEFAULT_MODEL,
     reconnectCount: 0,
+    autoLabel: DEFAULT_AUTO_LABEL_STATUS,
   });
   const [rtspPreset, setRtspPreset] = useState("default");
   const [rtspCustomPrompt, setRtspCustomPrompt] = useState(false);
@@ -73,7 +78,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
     }
 
     setRtspStatus("stopped");
-    setRtspMetadata((current) => ({ ...current, status: "stopped" }));
+    setRtspMetadata((current) => ({ ...current, status: "stopped", autoLabel: DEFAULT_AUTO_LABEL_STATUS }));
     if (appendStoppedRow) {
       setRtspCaptions((current) => [
         ...current,
@@ -122,6 +127,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
       lagMs: null,
       modelId: model,
       reconnectCount: 0,
+      autoLabel: DEFAULT_AUTO_LABEL_STATUS,
     });
     setRtspCaptions([]);
     setPreviewUrl(null);
@@ -135,6 +141,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
         sample_every_seconds: sampleEverySeconds,
         session_name: rtspSessionName.trim() || undefined,
         frame_prompt: rtspFramePrompt,
+        auto_label: autoLabelPayload(autoLabelConfig),
       });
 
       sessionIdRef.current = session.session_id;
@@ -146,6 +153,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
         lagMs: session.lag_ms,
         modelId: session.model_id,
         reconnectCount: session.reconnect_count,
+        autoLabel: normalizeAutoLabelStatus(session.auto_label),
       });
       setPreviewUrl(rtspPreviewMjpegUrl(session.session_id));
 
@@ -196,7 +204,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to start RTSP monitoring.";
       setRtspStatus("stopped");
-      setRtspMetadata((current) => ({ ...current, status: "stopped" }));
+      setRtspMetadata((current) => ({ ...current, status: "stopped", autoLabel: DEFAULT_AUTO_LABEL_STATUS }));
       setPreviewUrl(null);
       setStreamError(message);
       setRtspCaptions((current) => [
@@ -208,6 +216,24 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
           kind: "warning",
         },
       ]);
+    }
+  }
+
+  async function toggleAutoLabelling() {
+    const sessionId = sessionIdRef.current;
+    if (!sessionId) return;
+    const active = rtspMetadata.autoLabel.status === "active" || rtspMetadata.autoLabel.status === "draining";
+    try {
+      const status = active
+        ? await stopRtspAutoLabel(sessionId)
+        : await startRtspAutoLabel(sessionId, { ...autoLabelConfig, enabled: true });
+      setRtspMetadata((current) => ({ ...current, autoLabel: status }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Auto-Labelling request failed.";
+      setRtspMetadata((current) => ({
+        ...current,
+        autoLabel: { ...current.autoLabel, status: "error", lastError: message },
+      }));
     }
   }
 
@@ -247,6 +273,10 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
               onRtspCustomPromptChange={handleCustomPromptChange}
               rtspFramePrompt={rtspFramePrompt}
               onRtspFramePromptChange={setRtspFramePrompt}
+              autoLabelConfig={autoLabelConfig}
+              onAutoLabelConfigChange={setAutoLabelConfig}
+              autoLabelStatus={rtspMetadata.autoLabel}
+              onToggleAutoLabel={toggleAutoLabelling}
             />
           </ControlDrawer>
         }

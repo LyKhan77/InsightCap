@@ -3,11 +3,17 @@ from __future__ import annotations
 from typing import Optional
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.auto_label import AutoLabelConfig, AutoLabelStatus
+
 
 class AnalyzeParams(BaseModel):
     model: str = Field("qwen3.5:0.8b", description="vLLM served model name.")
     frame_prompt: Optional[str] = Field(None, description="Custom prompt for frame descriptions.")
     summary_prompt: Optional[str] = Field(None, description="Custom prompt for video summary.")
+    auto_label: AutoLabelConfig = Field(
+        default_factory=AutoLabelConfig,
+        description="Autonomous auto-labelling configuration.",
+    )
 
 
 class AnalysisResponse(BaseModel):
@@ -46,6 +52,7 @@ class DoneEvent(BaseModel):
     model_id: str
     video_fps: float = 0.0
     frame_interval: int = 10
+    auto_label: AutoLabelStatus = Field(default_factory=AutoLabelStatus)
 
 
 class ErrorResponse(BaseModel):

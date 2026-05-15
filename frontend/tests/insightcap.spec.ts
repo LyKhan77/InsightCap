@@ -37,6 +37,16 @@ async function mockRtspBackend(page: Page) {
         reconnect_count: 0,
         lag_ms: null,
         last_error: null,
+        auto_label: {
+          status: "idle",
+          dataset_path: null,
+          latest_overlay_path: null,
+          frames_labelled: 0,
+          frames_dropped: 0,
+          chunks_enqueued: 0,
+          remaining_seconds: null,
+          last_error: null,
+        },
       }),
     });
   });
@@ -59,6 +69,16 @@ async function mockRtspBackend(page: Page) {
         reconnect_count: 0,
         lag_ms: 118,
         last_error: null,
+        auto_label: {
+          status: "done",
+          dataset_path: "datasets/auto-label/rtsp/session-1",
+          latest_overlay_path: null,
+          frames_labelled: 10,
+          frames_dropped: 0,
+          chunks_enqueued: 1,
+          remaining_seconds: null,
+          last_error: null,
+        },
       }),
     });
   });
@@ -134,6 +154,9 @@ test("video flow navigates from mode switch, streams captions and export", async
   });
 
   await expect(page.getByText("demo.mp4").first()).toBeVisible();
+  await expect(page.getByText("Auto-Labelling").first()).toBeVisible();
+  await page.getByLabel("Enable").check();
+  await expect(page.getByLabel("Auto-label duration minutes")).toBeVisible();
 
   // Start analysis
   await page.getByRole("button", { name: /Initiate analysis/i }).click();
@@ -162,6 +185,9 @@ test("rtsp flow starts and stops a local monitoring session", async ({ page }) =
   // Fill RTSP fields
   await page.getByLabel("RTSP URL").fill("rtsp://camera.local/live");
   await page.getByLabel("Session name").fill("front-gate");
+  await expect(page.getByText("Auto-Labelling").first()).toBeVisible();
+  await page.getByLabel("Enable").check();
+  await expect(page.getByLabel("Auto-label detector model")).toBeVisible();
 
   // Start monitoring
   await page.getByRole("button", { name: /Start monitoring/i }).click();

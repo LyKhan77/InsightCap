@@ -71,6 +71,7 @@ temp/
 tmp/
 
 # Project Specific
+datasets/auto-label/
 video-test/
 screenshoot-temp/
 debug_ollama.py

@@ -1,5 +1,6 @@
 import { Camera, Radio } from "lucide-react";
 import type { CaptionRow, RtspMetadata } from "@/lib/types";
+import { AutoLabelPanel } from "./AutoLabelPanel";
 import { CaptionsPanel } from "./CaptionsPanel";
 import { MetadataStrip } from "./MetadataStrip";
 import { StatusBadge } from "./StatusBadge";
@@ -110,12 +111,17 @@ export function RtspWorkspace({
         />
       </section>
 
+      <AutoLabelPanel status={metadata.autoLabel} />
+
       <MetadataStrip
         items={[
           { label: "Status", value: metadata.status },
           { label: "Captions", value: metadata.captionsEmitted },
           { label: "Lag", value: metadata.lagMs === null ? "--" : `${metadata.lagMs}ms` },
           { label: "Model", value: metadata.modelId },
+          { label: "Auto Label", value: metadata.autoLabel.status },
+          { label: "Labelled", value: metadata.autoLabel.framesLabelled },
+          { label: "Dropped", value: metadata.autoLabel.framesDropped },
         ]}
       />
     </div>

@@ -8,6 +8,7 @@ The API supports two separate modes:
 
 - **Video Input Mode**: upload a finite video file and receive segment captions plus a final summary
 - **RTSP Camera Mode**: start a live RTSP monitoring session that captions 10 sampled-frame segments through a separate API namespace
+- **Auto-Labelling**: optional YOLO-World pseudo-labelling that exports raw frames, overlays, JSONL metadata, and YOLO labels from 10-frame chunks
 
 ## Documentation
 
@@ -112,6 +113,7 @@ and direct FastAPI integration:
 7. Pipeline state shows phase: uploading → analyzing (X/Y revealed) → summarizing → complete
 8. Final summary and export button appear after all captions are revealed
 9. Video controls re-enabled once backend finishes, allowing seek while captions continue revealing
+10. Optional Auto-Labelling can be enabled in the drawer before analysis; it labels each sampled chunk until the configured duration ends or the video job finishes
 
 No FPS or frame interval config needed — sampling is auto-computed from the video.
 
@@ -122,7 +124,19 @@ No FPS or frame interval config needed — sampling is auto-computed from the vi
 3. Click `[ START_MONITORING ]`
 4. The left panel shows a live MJPEG preview bridge of the RTSP camera
 5. The right panel subscribes to RTSP live events over WebSocket and appends one caption per 10 sampled-frame segment
-6. Click `[ STOP_MONITORING ]` to end the session
+6. Optional Auto-Labelling can be enabled in the drawer; it runs on completed 10-frame chunks for the configured duration
+7. When the Auto-Labelling schedule ends, RTSP preview and caption monitoring continue running
+8. Click `[ STOP_MONITORING ]` to end the session
+
+### Auto-Labelling Output
+
+Auto-Labelling uses YOLO-World small by default (`yolov8s-worldv2.pt`) and treats generated boxes as pseudo-labels until human-reviewed. Generated artifacts are written under `datasets/auto-label/<mode>/<job_id>/`:
+
+- `images/`: raw sampled frames
+- `labels/`: YOLO detection labels
+- `overlays/`: annotated screenshots
+- `annotations.jsonl`: per-frame metadata, caption context, prompt, model, and detections
+- `data.yaml`: YOLO training config
 
 ---
 
@@ -174,3 +188,5 @@ If Playwright browsers are not installed on the remote machine yet, run
 - Uploaded-video and RTSP analysis both batch 10 sampled frames per caption; uploaded videos also emit a final partial segment when fewer than 10 sampled frames remain
 - Sync is time-based approximation, not frame-perfect
 - No authentication or rate limiting on the API
+- Auto-Labelling depends on `ultralytics` and may download YOLO-World weights on first use
+- Generated Auto-Labelling boxes are pseudo-labels and should be reviewed before use as ground truth

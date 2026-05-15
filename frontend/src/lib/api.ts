@@ -1,3 +1,6 @@
+import type { AutoLabelConfig, AutoLabelStatus } from "./types";
+import { autoLabelPayload, normalizeAutoLabelStatus } from "./auto-label";
+
 export const API_BASE_URL = resolveApiBaseUrl();
 
 function resolveApiBaseUrl() {
@@ -33,6 +36,7 @@ export type RtspSessionResponse = {
   reconnect_count: number;
   lag_ms: number | null;
   last_error: string | null;
+  auto_label?: unknown;
 };
 
 export type RtspSessionCreateRequest = {
@@ -41,6 +45,7 @@ export type RtspSessionCreateRequest = {
   sample_every_seconds: number;
   session_name?: string;
   frame_prompt?: string;
+  auto_label?: ReturnType<typeof autoLabelPayload>;
 };
 
 export type RtspEvent = {
@@ -73,6 +78,10 @@ export function analyzeStreamUrl() {
   return apiUrl("/api/v1/analyze/stream");
 }
 
+export function autoLabelOverlayUrl(path: string) {
+  return apiUrl(`/api/v1/auto-label/overlay?path=${encodeURIComponent(path)}`);
+}
+
 export async function createRtspSession(
   request: RtspSessionCreateRequest,
 ): Promise<RtspSessionResponse> {
@@ -87,6 +96,35 @@ export async function createRtspSession(
   }
 
   return response.json();
+}
+
+export async function startRtspAutoLabel(
+  sessionId: string,
+  config: AutoLabelConfig,
+): Promise<AutoLabelStatus> {
+  const response = await fetch(apiUrl(`/api/v1/rtsp/sessions/${sessionId}/auto-label/start`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(autoLabelPayload(config)),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return normalizeAutoLabelStatus(await response.json());
+}
+
+export async function stopRtspAutoLabel(sessionId: string): Promise<AutoLabelStatus> {
+  const response = await fetch(apiUrl(`/api/v1/rtsp/sessions/${sessionId}/auto-label/stop`), {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return normalizeAutoLabelStatus(await response.json());
 }
 
 export async function deleteRtspSession(sessionId: string): Promise<RtspSessionResponse> {

@@ -47,6 +47,7 @@ class CaptionPipeline:
         on_frame_start: callable | None = None,
         on_frame_token: callable | None = None,
         on_frame_done: callable | None = None,
+        on_segment_done: callable | None = None,
         on_summary_token: callable | None = None,
     ) -> CaptionResult:
         """Run the full captioning pipeline on a local video file.
@@ -101,14 +102,19 @@ class CaptionPipeline:
             caption = "".join(tokens).strip()
             frame_captions.append(caption)
 
+            metadata = {
+                "segment_index": segment_index,
+                "sampled_frame_count": len(segment),
+                "frame_index_start": chunk_start,
+                "frame_index_end": chunk_start + len(segment) - 1,
+            }
             if on_frame_done:
-                metadata = {
-                    "segment_index": segment_index,
-                    "sampled_frame_count": len(segment),
-                    "frame_index_start": chunk_start,
-                    "frame_index_end": chunk_start + len(segment) - 1,
-                }
-                on_frame_done(segment_index, caption, metadata)
+                try:
+                    on_frame_done(segment_index, caption, metadata)
+                except TypeError:
+                    on_frame_done(segment_index, caption)
+            if on_segment_done:
+                on_segment_done(segment_index, caption, segment, metadata)
 
         # Generate overall narrative summary
         summary_tokens: list[str] = []

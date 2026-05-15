@@ -69,7 +69,7 @@ class ShortVideoFallbackPipelineTest(unittest.TestCase):
         self.assertEqual(backend.frame_calls, [])
         self.assertEqual(backend.summarize_calls, [["short-video-caption"]])
 
-    def test_ten_or_more_frames_uses_per_frame_path(self):
+    def test_ten_or_more_frames_uses_segment_path(self):
         backend = FakeBackend()
         frames = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(10)]
         pipeline = self._build_pipeline(backend, frames)
@@ -78,9 +78,10 @@ class ShortVideoFallbackPipelineTest(unittest.TestCase):
             result = pipeline.run("video.mp4")
 
         self.assertEqual(result.frame_count, 10)
-        self.assertEqual(len(result.frame_captions), 10)
-        self.assertEqual(len(backend.frame_calls), 10)
-        self.assertEqual(backend.frames_calls, [])
+        self.assertEqual(result.frame_captions, ["short-video-caption"])
+        self.assertEqual(backend.frame_calls, [])
+        self.assertEqual(len(backend.frames_calls), 1)
+        self.assertEqual(backend.frames_calls[0][0], 10)
 
     def test_zero_frames_keeps_existing_no_frames_behavior(self):
         backend = FakeBackend()

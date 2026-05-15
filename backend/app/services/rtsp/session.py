@@ -15,7 +15,9 @@ from backend.core.inference.factory import get_backend
 from backend.core.prompt.builder import PromptBuilder
 from backend.core.video.live_reader import LiveStreamReader
 
+from backend.app.schemas.auto_label import AutoLabelConfig, AutoLabelStatus
 from backend.app.schemas.rtsp import RTSPSessionCreateRequest, RTSPSessionResponse
+from backend.app.services.auto_label import AutoLabelJob
 from backend.app.services.rtsp.utils import (
     default_session_name,
     mask_error_message,
@@ -63,6 +65,8 @@ class RtspSession:
         self._latest_preview_jpeg: bytes | None = None
         self._capture_error: Exception | None = None
         self._segment_frames: list[tuple[int, Any]] = []
+        self._auto_label_config = request.auto_label
+        self._auto_label_job: AutoLabelJob | None = None
 
         self.status = "created"
         self.started_at: datetime | None = None
@@ -86,6 +90,8 @@ class RtspSession:
                 return
             self.status = "starting"
             self.started_at = utcnow()
+        if self._auto_label_config.enabled:
+            self.start_auto_label(self._auto_label_config)
         self._thread.start()
 
     def stop(self) -> None:
@@ -93,6 +99,7 @@ class RtspSession:
             if self.status not in {"stopped", "stopping"}:
                 self.status = "stopping"
         self._stop_event.set()
+        self.stop_auto_label(drain=False, emit_event=False)
         self._thread.join(timeout=3)
 
     def snapshot(self) -> RTSPSessionResponse:
@@ -111,7 +118,41 @@ class RtspSession:
                 reconnect_count=self.reconnect_count,
                 lag_ms=self.lag_ms,
                 last_error=self.last_error,
+                auto_label=self._auto_label_snapshot(),
             )
+
+    def start_auto_label(self, config: AutoLabelConfig) -> AutoLabelStatus:
+        with self._lock:
+            if self._auto_label_job is not None and self._auto_label_job.snapshot().status in {"active", "draining"}:
+                return self._auto_label_job.snapshot()
+            self._auto_label_config = config
+            self._auto_label_job = AutoLabelJob(
+                mode="rtsp",
+                job_id=self.session_id,
+                config=config,
+            )
+            self._auto_label_job.start()
+            snapshot = self._auto_label_job.snapshot()
+        self._emit("auto_label_started", **snapshot.model_dump(mode="json"))
+        return snapshot
+
+    def stop_auto_label(self, drain: bool = True, emit_event: bool = True) -> AutoLabelStatus:
+        with self._lock:
+            job = self._auto_label_job
+        if job is None:
+            return AutoLabelStatus()
+        job.stop(drain=drain)
+        if not drain:
+            job.join(timeout=1.0)
+        snapshot = job.snapshot()
+        if emit_event:
+            self._emit("auto_label_done", **snapshot.model_dump(mode="json"))
+        return snapshot
+
+    def _auto_label_snapshot(self) -> AutoLabelStatus:
+        if self._auto_label_job is None:
+            return AutoLabelStatus()
+        return self._auto_label_job.snapshot()
 
     def get_preview_jpeg(self) -> bytes | None:
         with self._lock:
@@ -247,6 +288,7 @@ class RtspSession:
                                     captions_emitted=snapshot.captions_emitted,
                                     reconnect_count=snapshot.reconnect_count,
                                     lag_ms=snapshot.lag_ms,
+                                    auto_label=snapshot.auto_label.model_dump(mode="json"),
                                 )
                                 last_heartbeat_at = now
 
@@ -328,6 +370,21 @@ class RtspSession:
             processed_at=processed_at.isoformat(),
             lag_ms=lag_ms,
         )
+
+        auto_label_job = self._auto_label_job
+        if auto_label_job is not None:
+            enqueued = auto_label_job.enqueue_chunk(
+                frames=frames,
+                segment_seq=seq,
+                caption=caption,
+                frame_seq_start=frame_seq_start,
+                source=self.source,
+            )
+            snapshot = auto_label_job.snapshot()
+            self._emit(
+                "auto_label_frame" if enqueued else "auto_label_done",
+                **snapshot.model_dump(mode="json"),
+            )
 
     def _capture_frames(self, reader: LiveStreamReader) -> None:
         """Continuously pull the newest frame so preview stays responsive."""

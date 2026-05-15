@@ -5,6 +5,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.auto_label import AutoLabelConfig, AutoLabelStatus
+
 
 class RTSPSessionCreateRequest(BaseModel):
     rtsp_url: str = Field(..., description="RTSP camera URL.")
@@ -24,6 +26,10 @@ class RTSPSessionCreateRequest(BaseModel):
         default=None,
         description="Custom prompt for live frame descriptions.",
     )
+    auto_label: AutoLabelConfig = Field(
+        default_factory=AutoLabelConfig,
+        description="Autonomous auto-labelling configuration.",
+    )
 
 
 class RTSPSessionResponse(BaseModel):
@@ -40,6 +46,7 @@ class RTSPSessionResponse(BaseModel):
     reconnect_count: int = 0
     lag_ms: Optional[float] = None
     last_error: Optional[str] = None
+    auto_label: AutoLabelStatus = Field(default_factory=AutoLabelStatus)
 
 
 class RTSPSessionListResponse(BaseModel):

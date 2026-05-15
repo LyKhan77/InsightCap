@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+from uuid import uuid4
 from typing import AsyncIterator, Optional
 
 from backend.core.config import InferenceConfig, SamplerConfig
 from backend.core.pipeline import CaptionPipeline
 from backend.core.video.reader import VideoReader
+
+from backend.app.services.auto_label import AutoLabelJob
 
 from backend.app.schemas.video import AnalysisResponse, AnalyzeParams
 
@@ -60,7 +63,35 @@ class AnalysisService:
             frame_prompt=params.frame_prompt,
             summary_prompt=params.summary_prompt,
         )
-        result = await asyncio.to_thread(pipeline.run, video_path)
+        auto_label_job = None
+        if params.auto_label.enabled:
+            auto_label_job = AutoLabelJob(
+                mode="video",
+                job_id=uuid4().hex,
+                config=params.auto_label,
+            )
+            auto_label_job.start()
+
+        def on_segment_done(segment_index: int, caption: str, frames: list, metadata: dict) -> None:
+            if auto_label_job is None:
+                return
+            frame_start = int(metadata.get("frame_index_start", segment_index))
+            auto_label_job.enqueue_chunk(
+                frames=frames,
+                segment_seq=segment_index + 1,
+                caption=caption,
+                frame_seq_start=frame_start,
+                source=video_path,
+            )
+
+        def _run_pipeline():
+            result = pipeline.run(video_path, on_segment_done=on_segment_done)
+            if auto_label_job is not None:
+                auto_label_job.stop(drain=True)
+                auto_label_job.join()
+            return result
+
+        result = await asyncio.to_thread(_run_pipeline)
         return AnalysisResponse(**dataclasses.asdict(result))
 
     async def run_stream(
@@ -119,6 +150,31 @@ class AnalysisService:
             loop.call_soon_threadsafe(queue.put_nowait, payload)
 
         result_holder: list = []
+        auto_label_job = None
+        if params.auto_label.enabled:
+            auto_label_job = AutoLabelJob(
+                mode="video",
+                job_id=uuid4().hex,
+                config=params.auto_label,
+            )
+            auto_label_job.start()
+            yield _sse("auto_label_started", auto_label_job.snapshot().model_dump(mode="json"))
+
+        def on_segment_done(segment_index: int, caption: str, frames: list, metadata: dict) -> None:
+            if auto_label_job is None:
+                return
+            frame_start = int(metadata.get("frame_index_start", segment_index))
+            auto_label_job.enqueue_chunk(
+                frames=frames,
+                segment_seq=segment_index + 1,
+                caption=caption,
+                frame_seq_start=frame_start,
+                source=video_path,
+            )
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"__event__": "auto_label_frame", **auto_label_job.snapshot().model_dump(mode="json")},
+            )
 
         def _run_pipeline() -> None:
             pipeline = self._build_pipeline(
@@ -131,7 +187,11 @@ class AnalysisService:
                 video_path,
                 time_limit_seconds=duration,
                 on_frame_done=on_frame_done,
+                on_segment_done=on_segment_done,
             )
+            if auto_label_job is not None:
+                auto_label_job.stop(drain=True)
+                auto_label_job.join()
             result_holder.append(result)
             loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel
 
@@ -141,6 +201,10 @@ class AnalysisService:
             item = await queue.get()
             if item is None:
                 break
+            if isinstance(item, dict) and item.get("__event__"):
+                event_name = item.pop("__event__")
+                yield _sse(event_name, item)
+                continue
             yield _sse("frame", item)
 
         if result_holder:
@@ -153,4 +217,7 @@ class AnalysisService:
                 "model_id": result.model_id,
                 "video_fps": result.video_fps,
                 "frame_interval": result.frame_interval,
+                "auto_label": auto_label_job.snapshot().model_dump(mode="json") if auto_label_job is not None else None,
             })
+            if auto_label_job is not None:
+                yield _sse("auto_label_done", auto_label_job.snapshot().model_dump(mode="json"))

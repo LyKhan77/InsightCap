@@ -1,4 +1,5 @@
 import type { RtspEvent } from "./api";
+import { normalizeAutoLabelStatus } from "./auto-label";
 import type { CaptionRow, RtspMetadata, RtspStatus } from "./types";
 
 type NormalizedRtspEvent = {
@@ -23,6 +24,12 @@ export function normalizeRtspEvent(event: RtspEvent, currentCount: number): Norm
         meta: width && height ? `${width}x${height} - ${fps ?? 0} FPS` : undefined,
         kind: "system",
       },
+    };
+  }
+
+  if (event.event === "auto_label_started" || event.event === "auto_label_frame" || event.event === "auto_label_done") {
+    return {
+      metadata: { autoLabel: normalizeAutoLabelStatus(data) },
     };
   }
 
@@ -57,6 +64,7 @@ export function normalizeRtspEvent(event: RtspEvent, currentCount: number): Norm
           ? {}
           : { reconnectCount: numberValue(data.reconnect_count) as number }),
         lagMs: numberValue(data.lag_ms),
+        ...(data.auto_label ? { autoLabel: normalizeAutoLabelStatus(data.auto_label) } : {}),
       },
     };
   }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VIDEO_PROMPT_PRESETS } from "@/data/prompts";
+import { DEFAULT_AUTO_LABEL_CONFIG, DEFAULT_AUTO_LABEL_STATUS, normalizeAutoLabelStatus } from "@/lib/auto-label";
 import type { CaptionRow, Theme, VideoMetadata, VideoStatus } from "@/lib/types";
 import { streamVideoAnalysis } from "@/lib/video-stream";
 import { AppFooter } from "./AppFooter";
@@ -41,6 +42,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
     durationSeconds: 0,
     deviceUsed: "--",
     modelId: DEFAULT_MODEL,
+    autoLabel: DEFAULT_AUTO_LABEL_STATUS,
   });
   const [videoPreset, setVideoPreset] = useState("default");
   const [videoCustomPrompts, setVideoCustomPrompts] = useState(false);
@@ -50,9 +52,9 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
   const [videoSummaryPrompt, setVideoSummaryPrompt] = useState(
     VIDEO_PROMPT_PRESETS.default.summaryPrompt,
   );
+  const [autoLabelConfig, setAutoLabelConfig] = useState(DEFAULT_AUTO_LABEL_CONFIG);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [backendFinished, setBackendFinished] = useState(false);
-  const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
 
   const fileUrl = useMemo(() => {
@@ -76,20 +78,13 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
     const video = videoElementRef.current;
     if (!video) return;
     const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
-    const onPlay = () => setVideoPlaying(true);
-    const onPause = () => setVideoPlaying(false);
     const onEnded = () => {
-      setVideoPlaying(false);
       setVideoEnded(true);
     };
     video.addEventListener("timeupdate", onTimeUpdate);
-    video.addEventListener("play", onPlay);
-    video.addEventListener("pause", onPause);
     video.addEventListener("ended", onEnded);
     return () => {
       video.removeEventListener("timeupdate", onTimeUpdate);
-      video.removeEventListener("play", onPlay);
-      video.removeEventListener("pause", onPause);
       video.removeEventListener("ended", onEnded);
     };
   }, [fileUrl]);
@@ -105,6 +100,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
       durationSeconds: 0,
       deviceUsed: "--",
       modelId: model,
+      autoLabel: DEFAULT_AUTO_LABEL_STATUS,
     });
   }
 
@@ -142,13 +138,13 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
     setVideoCaptions([]);
     setFinalCaption(null);
     setBackendFinished(false);
-    setVideoPlaying(false);
     setVideoEnded(false);
     setVideoMetadata({
       frameCount: 0,
       durationSeconds: 0,
       deviceUsed: "--",
       modelId: model,
+      autoLabel: DEFAULT_AUTO_LABEL_STATUS,
     });
     playVideoFromStart();
 
@@ -158,6 +154,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
         model,
         framePrompt: videoFramePrompt,
         summaryPrompt: videoSummaryPrompt,
+        autoLabel: autoLabelConfig,
         signal: controller.signal,
         onEvent: (event) => {
           if (event.event === "init") {
@@ -189,12 +186,20 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
             setFinalCaption(event.data.caption);
           }
 
+          if (event.event === "auto_label_started" || event.event === "auto_label_frame" || event.event === "auto_label_done") {
+            setVideoMetadata((current) => ({
+              ...current,
+              autoLabel: normalizeAutoLabelStatus(event.data),
+            }));
+          }
+
           if (event.event === "done") {
             setVideoMetadata({
               frameCount: event.data.frame_count,
               durationSeconds: event.data.duration_seconds,
               deviceUsed: event.data.device_used,
               modelId: event.data.model_id,
+              autoLabel: normalizeAutoLabelStatus(event.data.auto_label),
             });
             setBackendFinished(true);
           }
@@ -243,6 +248,9 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
               onVideoFramePromptChange={setVideoFramePrompt}
               videoSummaryPrompt={videoSummaryPrompt}
               onVideoSummaryPromptChange={setVideoSummaryPrompt}
+              autoLabelConfig={autoLabelConfig}
+              onAutoLabelConfigChange={setAutoLabelConfig}
+              autoLabelStatus={videoMetadata.autoLabel}
             />
           </ControlDrawer>
         }
@@ -259,7 +267,6 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
           metadata={videoMetadata}
           videoCurrentTime={videoCurrentTime}
           backendFinished={backendFinished}
-          videoPlaying={videoPlaying}
           videoEnded={videoEnded}
         />
       </section>
