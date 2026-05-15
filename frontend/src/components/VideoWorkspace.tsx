@@ -28,10 +28,6 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
   captions,
   finalCaption,
   metadata,
-<<<<<<< HEAD
-}: VideoWorkspaceProps, videoRef) {
-  const canExport = status === "complete" && finalCaption;
-=======
   videoCurrentTime,
   backendFinished,
   videoPlaying,
@@ -43,7 +39,6 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
         if (c.timestampEnd == null) return true;
         return c.timestampEnd <= videoCurrentTime + 1;
       });
->>>>>>> feat/chucking-frame
 
   const allRevealed = visibleCaptions.length === captions.length && captions.length > 0;
 
@@ -94,11 +89,7 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
                 <video
                   ref={videoRef}
                   src={fileUrl}
-<<<<<<< HEAD
-                  controls={status !== "analyzing" && status !== "initializing"}
-=======
                   controls={status === "initializing" || (status === "analyzing" && !backendFinished)}
->>>>>>> feat/chucking-frame
                   playsInline
                   preload="auto"
                   className="aspect-video w-full bg-canvas-night object-contain"
@@ -119,15 +110,7 @@ export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(
               </div>
               <div className="mt-2 flex items-center justify-between gap-4">
                 <p className="text-sm leading-6 text-ink">
-<<<<<<< HEAD
-                  {status === "idle" && "Waiting for a file."}
-                  {status === "ready" && "Ready to run backend analysis."}
-                  {status === "initializing" && "Uploading video and reading metadata."}
-                  {status === "analyzing" && "Streaming sampled segment captions."}
-                  {status === "complete" && "Analysis complete. Summary and export are available."}
-=======
                   {pipelineText[phase]}
->>>>>>> feat/chucking-frame
                 </p>
                 {showExport && finalCaption ? (
                   <Button
