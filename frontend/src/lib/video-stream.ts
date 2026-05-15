@@ -15,6 +15,10 @@ export type VideoStreamEvent =
         index: number;
         caption: string;
         timestamp_seconds: number;
+        timestamp_end_seconds?: number;
+        sampled_frame_count?: number | null;
+        frame_index_start?: number;
+        frame_index_end?: number;
       };
     }
   | {

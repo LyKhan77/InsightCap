@@ -43,10 +43,10 @@ def caption(
 
     def on_frame_start(idx: int, total: int) -> None:
         if verbose:
-            click.echo(f"[Frame {idx + 1:>2}/{total}] ", nl=False)
+            click.echo(f"[Segment {idx + 1:>2}/{total}] ", nl=False)
             sys.stdout.flush()
 
-    def on_frame_done(idx: int, frame_caption: str) -> None:
+    def on_frame_done(idx: int, frame_caption: str, metadata: dict | None = None) -> None:
         if verbose:
             click.echo(frame_caption)
 

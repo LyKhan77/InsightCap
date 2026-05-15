@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Download, Play } from "lucide-react";
 import type { CaptionRow, VideoMetadata, VideoStatus } from "@/lib/types";
 import { buildAnalysisExport, downloadJson } from "@/lib/export";
@@ -14,14 +15,14 @@ type VideoWorkspaceProps = {
   metadata: VideoMetadata;
 };
 
-export function VideoWorkspace({
+export const VideoWorkspace = forwardRef<HTMLVideoElement, VideoWorkspaceProps>(function VideoWorkspace({
   fileName,
   fileUrl,
   status,
   captions,
   finalCaption,
   metadata,
-}: VideoWorkspaceProps) {
+}: VideoWorkspaceProps, videoRef) {
   const canExport = status === "complete" && finalCaption;
 
   const isStreaming = status === "analyzing" || status === "initializing";
@@ -48,8 +49,11 @@ export function VideoWorkspace({
             {fileUrl ? (
               <div className="overflow-hidden rounded-lg border border-hairline bg-canvas-night shadow-mockup">
                 <video
+                  ref={videoRef}
                   src={fileUrl}
                   controls={status !== "analyzing" && status !== "initializing"}
+                  playsInline
+                  preload="auto"
                   className="aspect-video w-full bg-canvas-night object-contain"
                 />
               </div>
@@ -71,7 +75,7 @@ export function VideoWorkspace({
                   {status === "idle" && "Waiting for a file."}
                   {status === "ready" && "Ready to run backend analysis."}
                   {status === "initializing" && "Uploading video and reading metadata."}
-                  {status === "analyzing" && "Streaming sampled frame captions."}
+                  {status === "analyzing" && "Streaming sampled segment captions."}
                   {status === "complete" && "Analysis complete. Summary and export are available."}
                 </p>
                 {canExport ? (
@@ -110,4 +114,4 @@ export function VideoWorkspace({
       />
     </div>
   );
-}
+});
