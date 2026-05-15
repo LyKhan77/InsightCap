@@ -7,7 +7,7 @@ Analyzes a video file, generates per-frame captions with temporal context, and p
 The API supports two separate modes:
 
 - **Video Input Mode**: upload a finite video file and receive frame captions plus a final summary
-- **RTSP Camera Mode**: start a live RTSP monitoring session through a separate API namespace
+- **RTSP Camera Mode**: start a live RTSP monitoring session that captions 10 sampled-frame segments through a separate API namespace
 
 ## Documentation
 
@@ -119,7 +119,7 @@ No FPS or frame interval config needed — sampling is auto-computed from the vi
 2. Enter the RTSP URL and optional session name in the sidebar
 3. Click `[ START_MONITORING ]`
 4. The left panel shows a live MJPEG preview bridge of the RTSP camera
-5. The right panel subscribes to RTSP live events over WebSocket and appends captions as they arrive
+5. The right panel subscribes to RTSP live events over WebSocket and appends one caption per 10 sampled-frame segment
 6. Click `[ STOP_MONITORING ]` to end the session
 
 ---
@@ -169,6 +169,6 @@ If Playwright browsers are not installed on the remote machine yet, run
 ## Known Limitations
 
 - vLLM must be running before analysis requests are sent (`docker compose up vllm`)
-- Sequential inference — one vLLM chat-completion call per frame, no frame batching yet
+- Uploaded-video analysis is sequential per sampled frame; RTSP live analysis batches 10 sampled frames per caption
 - Sync is time-based approximation, not frame-perfect
 - No authentication or rate limiting on the API

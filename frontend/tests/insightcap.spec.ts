@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const API_BASE_URL = "http://localhost:6060";
+const API_BASE_URL = "http://127.0.0.1:6060";
 
 async function mockVideoAnalysis(page: Page) {
   await page.route(`${API_BASE_URL}/api/v1/analyze/stream`, async (route) => {
@@ -91,6 +91,11 @@ async function mockRtspBackend(page: Page) {
         data: {
           seq: 1,
           caption: "A person crosses the monitored area from left to right.",
+          sampled_frame_count: 10,
+          frame_seq_start: 1,
+          frame_seq_end: 10,
+          captured_at: "2026-05-13T00:00:00+00:00",
+          processed_at: "2026-05-13T00:00:01+00:00",
           lag_ms: 118,
         },
       }),

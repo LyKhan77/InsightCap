@@ -102,6 +102,30 @@ class VLLMBackend(CaptionBackend):
             if content:
                 yield content
 
+    def generate_for_frames(self, frames: list[np.ndarray], prompt: str) -> Iterator[str]:
+        content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        content.extend(
+            {
+                "type": "image_url",
+                "image_url": {"url": self._image_data_url(frame)},
+            }
+            for frame in frames
+        )
+        message = {
+            "role": "user",
+            "content": content,
+        }
+        response = self._create_completion([message], stream=self.config.stream)
+        if self.config.stream:
+            for chunk in response:
+                content_chunk = self._chunk_content(chunk)
+                if content_chunk:
+                    yield content_chunk
+        else:
+            content_text = self._message_content(response)
+            if content_text:
+                yield content_text
+
     def summarize(self, frame_captions: list[str], summary_prompt: str) -> Iterator[str]:
         message = self._builder.build_summary_message(frame_captions, summary_prompt)
         response = self._create_completion([message], stream=self.config.stream)

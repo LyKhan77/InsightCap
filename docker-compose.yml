@@ -25,4 +25,4 @@ services:
       - --served-model-name
       - qwen3.5:0.8b
       - --limit-mm-per-prompt.image
-      - "1"
+      - "10"

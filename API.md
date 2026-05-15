@@ -273,7 +273,7 @@ ws://localhost:6060/api/v1/rtsp/sessions/<session_id>/events
 Event yang dapat diterima:
 
 - `connected`
-- `caption`
+- `caption` (one caption per 10 sampled-frame segment)
 - `warning`
 - `heartbeat`
 - `stopped`
@@ -289,12 +289,19 @@ Contoh event:
   "data": {
     "seq": 3,
     "caption": "A person stands near the entrance and looks toward the street.",
+    "sampled_frame_count": 10,
+    "frame_seq_start": 21,
+    "frame_seq_end": 30,
     "captured_at": "2026-03-30T08:00:04+00:00",
     "processed_at": "2026-03-30T08:00:05+00:00",
     "lag_ms": 842.2
   }
 }
 ```
+
+RTSP caption events are segment-based. The backend collects 10 sampled live frames
+according to `sample_every_seconds`, sends those frames in one vLLM request, and
+uses the previous segment caption as text context.
 
 ## Cara Integrasi yang Disarankan
 

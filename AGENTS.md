@@ -22,7 +22,7 @@ InsightCap is a Python + Next.js application with three layers:
 - SSE streaming for uploaded-video captions: `init`, `frame`, `summary`, `done`.
 - RTSP live monitoring with session lifecycle API.
 - RTSP live preview through MJPEG endpoint.
-- RTSP live events through WebSocket endpoint.
+- RTSP live events through WebSocket endpoint, with one caption per 10 sampled-frame segment.
 - Frame sampling and temporal context prompts.
 - Summary generation from frame captions.
 - vLLM OpenAI-compatible inference backend as current default.
@@ -136,7 +136,7 @@ InsightCap/
 
 ### Current Problems
 
-- RTSP processing uses one worker thread/session and synchronous frame inference; concurrency is limited.
+- RTSP processing uses one worker thread/session and synchronous segment inference; concurrency is limited.
 - API has no authentication, authorization, or rate limiting.
 - Uploaded-video and RTSP inference depend on a running local vLLM OpenAI-compatible server.
 - vLLM runtime smoke test is pending: `docker compose up -d vllm` starts downloading the image, but the official image has multi-GB layers and was stopped before completion.
@@ -156,15 +156,15 @@ InsightCap/
   - Dev server: Webpack (`--webpack` flag), port 3060.
   - Calls FastAPI directly via `NEXT_PUBLIC_API_BASE_URL`.
   - `/video` streams uploaded-video captions over SSE.
-  - `/rtsp` creates backend sessions, renders MJPEG preview, and subscribes to WebSocket events.
+  - `/rtsp` creates backend sessions, renders MJPEG preview, and subscribes to WebSocket segment caption events.
   - Playwright e2e tests mock backend SSE/REST/WS flows.
 - Default `InferenceConfig.backend` is `vllm`.
 - Default `InferenceConfig.vllm_base_url` is `http://localhost:8060/v1`.
-- `VLLMBackend` exists and is covered by `tests/test_vllm_backend.py`.
-- `docker-compose.yml` serves vLLM on host/container port `8060`.
+- `VLLMBackend` supports single-frame and multi-frame image requests and is covered by `tests/test_vllm_backend.py`.
+- `docker-compose.yml` serves vLLM on host/container port `8060` and allows 10 images per multimodal prompt.
 - FastAPI entrypoint is `backend.app.main:app`.
 - FastAPI includes system, analyze, and RTSP routers.
-- RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, and WebSocket events.
+- RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, and WebSocket segment caption events.
 
 ---
 

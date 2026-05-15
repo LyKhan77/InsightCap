@@ -155,14 +155,14 @@ DELETE /sessions → RtspSession.stop() → Thread.join() → Cleanup
 | Event | Description | Data Fields |
 |-------|-------------|-------------|
 | `connected` | RTSP stream connected | `source`, `width`, `height`, `fps` |
-| `caption` | Frame caption generated | `seq`, `caption`, `captured_at`, `processed_at`, `lag_ms` |
+| `caption` | 10 sampled-frame segment caption generated | `seq`, `caption`, `sampled_frame_count`, `frame_seq_start`, `frame_seq_end`, `captured_at`, `processed_at`, `lag_ms` |
 | `heartbeat` | Periodic status | `status`, `captions_emitted`, `reconnect_count` |
 | `warning` | Recoverable error | `message`, `reconnect_count` |
 | `stopped` | Session terminated | `status` |
 
 ### 3.3 Temporal Context Captioning
 
-**Purpose**: Maintain narrative continuity across frames by including previous captions in the prompt.
+**Purpose**: Maintain narrative continuity by including previous captions in the prompt.
 
 **Implementation** (`backend/core/prompt/builder.py`):
 
@@ -188,8 +188,8 @@ def build_frame_message_with_context(
 ```
 
 **Configuration**:
-- `InferenceConfig.temporal_context_frames = 3` (default)
-- Each frame prompt includes the last 3 captions as context
+- Uploaded-video frame prompts include the last `InferenceConfig.temporal_context_frames` captions as context.
+- RTSP live prompts analyze 10 sampled frames as one segment and include the previous segment caption as text context.
 
 ### 3.4 Streaming Architecture
 
@@ -283,7 +283,7 @@ def build_frame_message_with_context(
 │  │  ├── LiveStreamReader(url) open                                  ││
 │  │  ├── spawn capture_frames() thread                               ││
 │  │  ├── emit "connected" event                                      ││
-│  │  └── Loop: sample frame → inference → emit "caption" event       ││
+│  │  └── Loop: collect 10 sampled frames → inference → caption       ││
 │  └─────────────────────────────────────────────────────────────────┘│
 │                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────┐│

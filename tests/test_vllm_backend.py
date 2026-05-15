@@ -76,6 +76,23 @@ class VLLMBackendTest(unittest.TestCase):
         self.assertEqual(content[1]["type"], "image_url")
         self.assertTrue(content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
 
+    def test_generate_for_frames_sends_multi_image_payload(self):
+        client = FakeClient(response_with_text("segment caption"))
+        config = InferenceConfig(model_id="qwen3.5:0.8b", backend="vllm", stream=False)
+        backend = VLLMBackend(config, client=client)
+        frames = [np.zeros((8, 8, 3), dtype=np.uint8) for _ in range(10)]
+
+        output = list(backend.generate_for_frames(frames, "Analyze this segment."))
+
+        self.assertEqual(output, ["segment caption"])
+        content = client.chat.completions.calls[0]["messages"][0]["content"]
+        self.assertEqual(content[0], {"type": "text", "text": "Analyze this segment."})
+        image_items = [item for item in content if item["type"] == "image_url"]
+        self.assertEqual(len(image_items), 10)
+        self.assertTrue(
+            all(item["image_url"]["url"].startswith("data:image/jpeg;base64,") for item in image_items)
+        )
+
     def test_streaming_chunks_are_yielded(self):
         client = FakeClient([chunk_with_text("cap"), chunk_with_text("tion")])
         config = InferenceConfig(model_id="qwen3.5:0.8b", backend="vllm", stream=True)

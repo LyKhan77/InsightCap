@@ -37,6 +37,8 @@ class RtspSession:
     _PREVIEW_MAX_WIDTH = 960
     _PREVIEW_JPEG_QUALITY = 70
     _MAX_CONSECUTIVE_READ_FAILURES = 240
+    _SEGMENT_FRAME_COUNT = 10
+    _SEGMENT_CONTEXT_CAPTIONS = 1
 
     def __init__(self, session_id: str, request: RTSPSessionCreateRequest) -> None:
         self.session_id = session_id
@@ -60,6 +62,7 @@ class RtspSession:
         self._latest_frame_seq = 0
         self._latest_preview_jpeg: bytes | None = None
         self._capture_error: Exception | None = None
+        self._segment_frames: list[tuple[int, Any]] = []
 
         self.status = "created"
         self.started_at: datetime | None = None
@@ -76,7 +79,6 @@ class RtspSession:
 
         self._backend = get_backend(inference_config)
         self._prompt_builder = PromptBuilder(frame_prompt=inference_config.frame_prompt)
-        self._context_window = inference_config.temporal_context_frames
 
     def start(self) -> None:
         with self._lock:
@@ -121,6 +123,7 @@ class RtspSession:
             self._latest_frame_seq = 0
             self._latest_preview_jpeg = None
             self._capture_error = None
+            self._segment_frames.clear()
 
     def _get_latest_frame_snapshot(self) -> tuple[int, Any]:
         with self._lock:
@@ -258,37 +261,7 @@ class RtspSession:
 
                             last_sample_at = now
                             last_processed_frame_seq = frame_seq
-                            with self._lock:
-                                seq = self.captions_emitted + 1
-                                previous_captions = list(self._recent_captions)[-self._context_window :]
-
-                            captured_at = utcnow()
-                            prompt = self._prompt_builder.build_live_frame_prompt(
-                                previous_captions,
-                                frame_num=seq,
-                                source_label=self.session_name,
-                            )
-
-                            started = time.monotonic()
-                            chunks = list(self._backend.generate_for_frame(frame, prompt))
-                            caption = "".join(chunks).strip()
-                            processed_at = utcnow()
-                            lag_ms = round((time.monotonic() - started) * 1000, 2)
-
-                            with self._lock:
-                                self.last_caption = caption
-                                self.captions_emitted = seq
-                                self.lag_ms = lag_ms
-                                self._recent_captions.append(caption)
-
-                            self._emit(
-                                "caption",
-                                seq=seq,
-                                caption=caption,
-                                captured_at=captured_at.isoformat(),
-                                processed_at=processed_at.isoformat(),
-                                lag_ms=lag_ms,
-                            )
+                            self._process_sampled_live_frame(frame_seq, frame)
                     finally:
                         capture_thread.join(timeout=1.5)
             except Exception as exc:
@@ -308,6 +281,53 @@ class RtspSession:
 
         self._set_status("stopped")
         self._emit("stopped", status="stopped")
+
+    def _process_sampled_live_frame(self, frame_seq: int, frame: Any) -> None:
+        """Add one sampled frame and emit a caption when a full segment is ready."""
+        with self._lock:
+            self._segment_frames.append((frame_seq, frame.copy()))
+            if len(self._segment_frames) < self._SEGMENT_FRAME_COUNT:
+                return
+
+            segment = self._segment_frames[: self._SEGMENT_FRAME_COUNT]
+            self._segment_frames = self._segment_frames[self._SEGMENT_FRAME_COUNT :]
+            seq = self.captions_emitted + 1
+            previous_captions = list(self._recent_captions)[-self._SEGMENT_CONTEXT_CAPTIONS :]
+
+        frame_seq_start = segment[0][0]
+        frame_seq_end = segment[-1][0]
+        frames = [item[1] for item in segment]
+        captured_at = utcnow()
+        prompt = self._prompt_builder.build_live_segment_prompt(
+            previous_captions,
+            segment_num=seq,
+            source_label=self.session_name,
+            sampled_frame_count=len(frames),
+        )
+
+        started = time.monotonic()
+        chunks = list(self._backend.generate_for_frames(frames, prompt))
+        caption = "".join(chunks).strip()
+        processed_at = utcnow()
+        lag_ms = round((time.monotonic() - started) * 1000, 2)
+
+        with self._lock:
+            self.last_caption = caption
+            self.captions_emitted = seq
+            self.lag_ms = lag_ms
+            self._recent_captions.append(caption)
+
+        self._emit(
+            "caption",
+            seq=seq,
+            caption=caption,
+            sampled_frame_count=len(frames),
+            frame_seq_start=frame_seq_start,
+            frame_seq_end=frame_seq_end,
+            captured_at=captured_at.isoformat(),
+            processed_at=processed_at.isoformat(),
+            lag_ms=lag_ms,
+        )
 
     def _capture_frames(self, reader: LiveStreamReader) -> None:
         """Continuously pull the newest frame so preview stays responsive."""

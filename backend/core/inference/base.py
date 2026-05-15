@@ -25,6 +25,18 @@ class CaptionBackend(ABC):
         """
 
     @abstractmethod
+    def generate_for_frames(self, frames: list[np.ndarray], prompt: str) -> Iterator[str]:
+        """Stream caption tokens for a sequence of video frames.
+
+        Args:
+            frames: Ordered BGR numpy arrays from OpenCV.
+            prompt: Instruction text for the model.
+
+        Yields:
+            Text chunks as they are streamed from the model.
+        """
+
+    @abstractmethod
     def summarize(self, frame_captions: list[str], summary_prompt: str) -> Iterator[str]:
         """Stream a summary caption given per-frame captions as text.
 
