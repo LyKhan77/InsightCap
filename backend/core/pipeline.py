@@ -26,6 +26,8 @@ class CaptionResult:
 class CaptionPipeline:
     """Orchestrates video reading, frame sampling, and caption generation."""
 
+    _SHORT_VIDEO_FALLBACK_THRESHOLD = 10
+
     def __init__(
         self,
         sampler_config: SamplerConfig | None = None,
@@ -74,29 +76,18 @@ class CaptionPipeline:
                 frame_interval=self.sampler_config.frame_interval,
             )
 
-        frame_captions: list[str] = []
         total = len(frames)
-        n_context = self.inference_config.temporal_context_frames
-        deadline = time.monotonic() + time_limit_seconds if time_limit_seconds else None
+        frame_captions: list[str] = []
 
-        for i, frame in enumerate(frames):
-            if deadline and time.monotonic() > deadline:
-                break  # video has ended — stop processing remaining frames
+        if total < self._SHORT_VIDEO_FALLBACK_THRESHOLD:
             if on_frame_start:
-                on_frame_start(i, total)
+                on_frame_start(0, total)
 
-            # Build context-aware prompt using last N completed captions
-            previous = frame_captions[-n_context:] if n_context > 0 else []
-            message = self._prompt_builder.build_frame_message_with_context(
-                frame,
-                previous_captions=previous,
-                frame_num=i + 1,
-                total_frames=total,
+            prompt = self._prompt_builder.build_short_video_prompt(
+                sampled_frame_count=total
             )
-            context_prompt = message["content"]
-
             tokens: list[str] = []
-            for token in self._backend.generate_for_frame(frame, context_prompt):
+            for token in self._backend.generate_for_frames(frames, prompt):
                 tokens.append(token)
                 if on_frame_token:
                     on_frame_token(token)
@@ -105,7 +96,38 @@ class CaptionPipeline:
             frame_captions.append(caption)
 
             if on_frame_done:
-                on_frame_done(i, caption)
+                on_frame_done(0, caption)
+        else:
+            n_context = self.inference_config.temporal_context_frames
+            deadline = time.monotonic() + time_limit_seconds if time_limit_seconds else None
+
+            for i, frame in enumerate(frames):
+                if deadline and time.monotonic() > deadline:
+                    break  # video has ended — stop processing remaining frames
+                if on_frame_start:
+                    on_frame_start(i, total)
+
+                # Build context-aware prompt using last N completed captions
+                previous = frame_captions[-n_context:] if n_context > 0 else []
+                message = self._prompt_builder.build_frame_message_with_context(
+                    frame,
+                    previous_captions=previous,
+                    frame_num=i + 1,
+                    total_frames=total,
+                )
+                context_prompt = message["content"]
+
+                tokens: list[str] = []
+                for token in self._backend.generate_for_frame(frame, context_prompt):
+                    tokens.append(token)
+                    if on_frame_token:
+                        on_frame_token(token)
+
+                caption = "".join(tokens).strip()
+                frame_captions.append(caption)
+
+                if on_frame_done:
+                    on_frame_done(i, caption)
 
         # Generate overall narrative summary
         summary_tokens: list[str] = []

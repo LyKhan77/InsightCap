@@ -116,6 +116,14 @@ class PromptBuilder:
             f"{self.frame_prompt}"
         )
 
+    def build_short_video_prompt(self, sampled_frame_count: int) -> str:
+        """Build a prompt for short uploaded videos processed as one segment."""
+        return (
+            f"Analyze these {sampled_frame_count} sampled video frames as one short video segment. "
+            "Describe the most meaningful activity across the full clip, not frame-by-frame. "
+            f"{self.frame_prompt}"
+        )
+
     def build_summary_message(self, frame_captions: list[str], summary_prompt: str) -> dict:
         """Build the chat message for summarizing all frame captions."""
         captions_text = "\n".join(

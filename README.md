@@ -4,6 +4,8 @@ Video understanding and captioning system powered by `Qwen/Qwen3.5-0.8B` via vLL
 
 Analyzes a video file, generates per-frame captions with temporal context, and produces a coherent narrative summary — all streamed in real-time to the browser.
 
+For short uploads with fewer than 10 sampled frames, Video mode uses one combined short-video caption event before summary (SSE contract unchanged).
+
 The API supports two separate modes:
 
 - **Video Input Mode**: upload a finite video file and receive frame captions plus a final summary
@@ -108,6 +110,7 @@ and direct FastAPI integration:
 3. Click `[ INITIATE_ANALYSIS ]`
 4. Frontend posts to `/api/v1/analyze/stream`
 5. Backend emits `init`, `frame`, `summary`, and `done` SSE events
+   - For uploads with <10 sampled frames, only one `frame` event is emitted from combined short-video analysis
 6. Pipeline stops automatically when video duration is reached
 7. Final narrative summary appears; video controls restored
 
@@ -169,6 +172,6 @@ If Playwright browsers are not installed on the remote machine yet, run
 ## Known Limitations
 
 - vLLM must be running before analysis requests are sent (`docker compose up vllm`)
-- Uploaded-video analysis is sequential per sampled frame; RTSP live analysis batches 10 sampled frames per caption
+- Uploaded-video analysis is sequential per sampled frame when sampled frames are >=10; uploads with <10 sampled frames use a single combined caption event. RTSP live analysis batches 10 sampled frames per caption
 - Sync is time-based approximation, not frame-perfect
 - No authentication or rate limiting on the API
