@@ -170,7 +170,7 @@ event: init
 data: {"total_frames": 12, "video_fps": 30.0, "duration_seconds": 12.4}
 
 event: frame
-data: {"index": 0, "caption": "...", "timestamp_seconds": 0.0}
+data: {"index": 0, "caption": "...", "timestamp_seconds": 0.0, "timestamp_end_seconds": 9.0, "sampled_frame_count": 10, "frame_index_start": 0, "frame_index_end": 9}
 
 event: summary
 data: {"caption": "..."}

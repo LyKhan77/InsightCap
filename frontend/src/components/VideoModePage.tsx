@@ -50,6 +50,10 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
   const [videoSummaryPrompt, setVideoSummaryPrompt] = useState(
     VIDEO_PROMPT_PRESETS.default.summaryPrompt,
   );
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [backendFinished, setBackendFinished] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoEnded, setVideoEnded] = useState(false);
 
   const fileUrl = useMemo(() => {
     if (!videoFile) return null;
@@ -67,6 +71,28 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const video = videoElementRef.current;
+    if (!video) return;
+    const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
+    const onPlay = () => setVideoPlaying(true);
+    const onPause = () => setVideoPlaying(false);
+    const onEnded = () => {
+      setVideoPlaying(false);
+      setVideoEnded(true);
+    };
+    video.addEventListener("timeupdate", onTimeUpdate);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("ended", onEnded);
+    return () => {
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("ended", onEnded);
+    };
+  }, [fileUrl]);
 
   function handleVideoFileChange(file: File | null) {
     abortControllerRef.current?.abort();
@@ -115,6 +141,9 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
     setVideoStatus("initializing");
     setVideoCaptions([]);
     setFinalCaption(null);
+    setBackendFinished(false);
+    setVideoPlaying(false);
+    setVideoEnded(false);
     setVideoMetadata({
       frameCount: 0,
       durationSeconds: 0,
@@ -150,6 +179,8 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
                 caption: event.data.caption,
                 meta: formatVideoCaptionMeta(event.data),
                 kind: "caption",
+                timestampStart: event.data.timestamp_seconds,
+                timestampEnd: event.data.timestamp_end_seconds ?? event.data.timestamp_seconds,
               },
             ]);
           }
@@ -165,7 +196,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
               deviceUsed: event.data.device_used,
               modelId: event.data.model_id,
             });
-            setVideoStatus("complete");
+            setBackendFinished(true);
           }
         },
       });
@@ -226,6 +257,10 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
           captions={videoCaptions}
           finalCaption={finalCaption}
           metadata={videoMetadata}
+          videoCurrentTime={videoCurrentTime}
+          backendFinished={backendFinished}
+          videoPlaying={videoPlaying}
+          videoEnded={videoEnded}
         />
       </section>
 
