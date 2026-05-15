@@ -13,9 +13,23 @@ import { VideoWorkspace } from "./VideoWorkspace";
 
 const DEFAULT_MODEL = "qwen3.5:0.8b";
 
+type VideoCaptionEventData = {
+  timestamp_seconds: number;
+  timestamp_end_seconds?: number;
+  sampled_frame_count?: number | null;
+};
+
+function formatVideoCaptionMeta(data: VideoCaptionEventData) {
+  const start = data.timestamp_seconds.toFixed(1);
+  const end = data.timestamp_end_seconds?.toFixed(1);
+  const range = end && end !== start ? start + "s-" + end + "s" : start + "s";
+  return data.sampled_frame_count ? range + " - " + data.sampled_frame_count + " frames" : range;
+}
+
 export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeChange: (t: Theme) => void }) {
   const router = useRouter();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const videoElementRef = useRef<HTMLVideoElement | null>(null);
 
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -86,6 +100,13 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
     }
   }
 
+  function playVideoFromStart() {
+    const video = videoElementRef.current;
+    if (!video) return;
+    video.currentTime = 0;
+    void video.play().catch(() => undefined);
+  }
+
   async function startVideoAnalysis() {
     if (!videoFile || videoStatus === "analyzing") return;
 
@@ -100,6 +121,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
       deviceUsed: "--",
       modelId: model,
     });
+    playVideoFromStart();
 
     try {
       await streamVideoAnalysis({
@@ -111,6 +133,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
         onEvent: (event) => {
           if (event.event === "init") {
             setVideoStatus("analyzing");
+            playVideoFromStart();
             setVideoMetadata((current) => ({
               ...current,
               frameCount: event.data.total_frames,
@@ -125,7 +148,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
                 id: `video-frame-${event.data.index}-${Date.now()}`,
                 frame: event.data.index + 1,
                 caption: event.data.caption,
-                meta: `${event.data.timestamp_seconds.toFixed(1)}s`,
+                meta: formatVideoCaptionMeta(event.data),
                 kind: "caption",
               },
             ]);
@@ -196,6 +219,7 @@ export function VideoModePage({ theme, onThemeChange }: { theme: Theme; onThemeC
 
       <section className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-6 md:px-8">
         <VideoWorkspace
+          ref={videoElementRef}
           fileName={videoFile?.name ?? null}
           fileUrl={fileUrl}
           status={videoStatus}

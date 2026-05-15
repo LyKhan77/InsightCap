@@ -29,6 +29,10 @@ class FrameEvent(BaseModel):
     index: int
     caption: str
     timestamp_seconds: float = 0.0
+    timestamp_end_seconds: Optional[float] = None
+    sampled_frame_count: Optional[int] = None
+    frame_index_start: Optional[int] = None
+    frame_index_end: Optional[int] = None
 
 
 class SummaryEvent(BaseModel):

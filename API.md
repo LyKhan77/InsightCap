@@ -15,7 +15,7 @@ API ini menyediakan dua mode terpisah:
 
 Fungsi utama API:
 
-- menerima file video dan menghasilkan caption frame-per-frame
+- menerima file video dan menghasilkan caption per segmen 10 sampled frame
 - menghasilkan ringkasan akhir dari video upload
 - membuat session monitoring RTSP secara live
 - mengirim event caption RTSP secara real-time via WebSocket

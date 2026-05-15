@@ -2,11 +2,11 @@
 
 Video understanding and captioning system powered by `Qwen/Qwen3.5-0.8B` via vLLM.
 
-Analyzes a video file, generates per-frame captions with temporal context, and produces a coherent narrative summary — all streamed in real-time to the browser.
+Analyzes a video file, generates 10-sampled-frame segment captions with temporal context, and produces a coherent narrative summary — all streamed in real-time to the browser.
 
 The API supports two separate modes:
 
-- **Video Input Mode**: upload a finite video file and receive frame captions plus a final summary
+- **Video Input Mode**: upload a finite video file and receive segment captions plus a final summary
 - **RTSP Camera Mode**: start a live RTSP monitoring session that captions 10 sampled-frame segments through a separate API namespace
 
 ## Documentation
@@ -107,7 +107,7 @@ and direct FastAPI integration:
 2. Select model (default: `qwen3.5:0.8b`)
 3. Click `[ INITIATE_ANALYSIS ]`
 4. Frontend posts to `/api/v1/analyze/stream`
-5. Backend emits `init`, `frame`, `summary`, and `done` SSE events
+5. Backend emits `init`, one `frame` event per 10 sampled-frame segment, `summary`, and `done` SSE events
 6. Pipeline stops automatically when video duration is reached
 7. Final narrative summary appears; video controls restored
 
@@ -130,7 +130,7 @@ No FPS or frame interval config needed — sampling is auto-computed from the vi
 # Basic caption (summary only)
 python -m backend.core.cli path/to/video.mp4
 
-# Verbose (per-frame + summary)
+# Verbose (segment captions + summary)
 python -m backend.core.cli path/to/video.mp4 --verbose
 
 # Custom model
@@ -169,6 +169,6 @@ If Playwright browsers are not installed on the remote machine yet, run
 ## Known Limitations
 
 - vLLM must be running before analysis requests are sent (`docker compose up vllm`)
-- Uploaded-video analysis is sequential per sampled frame; RTSP live analysis batches 10 sampled frames per caption
+- Uploaded-video and RTSP analysis both batch 10 sampled frames per caption; uploaded videos also emit a final partial segment when fewer than 10 sampled frames remain
 - Sync is time-based approximation, not frame-perfect
 - No authentication or rate limiting on the API

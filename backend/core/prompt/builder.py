@@ -116,6 +116,33 @@ class PromptBuilder:
             f"{self.frame_prompt}"
         )
 
+    def build_video_segment_prompt(
+        self,
+        previous_captions: list[str],
+        segment_num: int,
+        sampled_frame_count: int,
+    ) -> str:
+        """Build a prompt for an uploaded-video segment made from sampled frames."""
+        base = (
+            f"Analyze these {sampled_frame_count} sampled video frames as one temporal segment "
+            f"#{segment_num}. Describe the meaningful activity across the segment, not each "
+            f"frame separately. {self.frame_prompt}"
+        )
+        if not previous_captions:
+            return base
+
+        context_lines = "\n".join(
+            f"Previous segment {i + 1}: {caption}"
+            for i, caption in enumerate(previous_captions)
+        )
+        return (
+            f"Previous segment observations:\n{context_lines}\n\n"
+            f"Analyze these {sampled_frame_count} sampled video frames as one temporal segment "
+            f"#{segment_num}. Use the previous segment observations only for temporal context. "
+            f"Describe the meaningful activity across the segment, not each frame separately. "
+            f"{self.frame_prompt}"
+        )
+
     def build_summary_message(self, frame_captions: list[str], summary_prompt: str) -> dict:
         """Build the chat message for summarizing all frame captions."""
         captions_text = "\n".join(

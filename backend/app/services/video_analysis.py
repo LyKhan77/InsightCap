@@ -15,7 +15,7 @@ from backend.app.schemas.video import AnalysisResponse, AnalyzeParams
 class AnalysisService:
     """Async bridge between FastAPI routes and the synchronous CaptionPipeline."""
 
-    _MAX_FRAMES = 20  # hard cap — keeps inference time manageable
+    _MAX_FRAMES = 60  # hard cap — keeps inference time manageable
 
     def _compute_sampling(self, video_fps: float, total_native: int) -> tuple[int, int]:
         """Return (frame_interval, max_frames) auto-computed from video metadata.
@@ -101,9 +101,22 @@ class AnalysisService:
         loop = asyncio.get_event_loop()
         queue: asyncio.Queue = asyncio.Queue()
 
-        def on_frame_done(idx: int, caption: str) -> None:
-            timestamp = (idx * frame_interval) / video_fps if video_fps > 0 else 0.0
-            loop.call_soon_threadsafe(queue.put_nowait, (idx, caption, timestamp))
+        def on_frame_done(idx: int, caption: str, metadata: dict | None = None) -> None:
+            metadata = metadata or {}
+            frame_start = int(metadata.get("frame_index_start", idx))
+            frame_end = int(metadata.get("frame_index_end", frame_start))
+            timestamp = (frame_start * frame_interval) / video_fps if video_fps > 0 else 0.0
+            timestamp_end = (frame_end * frame_interval) / video_fps if video_fps > 0 else timestamp
+            payload = {
+                "index": int(metadata.get("segment_index", idx)),
+                "caption": caption,
+                "timestamp_seconds": timestamp,
+                "timestamp_end_seconds": timestamp_end,
+                "sampled_frame_count": metadata.get("sampled_frame_count"),
+                "frame_index_start": frame_start,
+                "frame_index_end": frame_end,
+            }
+            loop.call_soon_threadsafe(queue.put_nowait, payload)
 
         result_holder: list = []
 
@@ -128,8 +141,7 @@ class AnalysisService:
             item = await queue.get()
             if item is None:
                 break
-            idx, caption, timestamp = item
-            yield _sse("frame", {"index": idx, "caption": caption, "timestamp_seconds": timestamp})
+            yield _sse("frame", item)
 
         if result_holder:
             result = result_holder[0]
