@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +9,10 @@ from pydantic import BaseModel, Field
 class AutoLabelConfig(BaseModel):
     enabled: bool = Field(False, description="Whether autonomous auto-labelling is enabled.")
     prompt: str = Field("", description="Comma or newline separated object labels to detect.")
+    schedule_mode: Literal["duration", "automatic"] = Field(
+        "duration",
+        description="Auto-labelling scheduler mode: fixed duration or automatic until manually stopped.",
+    )
     duration_minutes: float = Field(
         5.0,
         gt=0,

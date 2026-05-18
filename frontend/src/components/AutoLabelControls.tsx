@@ -69,18 +69,19 @@ export function AutoLabelControls({
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-2 block font-mono text-xs uppercase tracking-wide text-ink-muted">
-                Duration min
+                Schedule
               </span>
-              <input
-                aria-label="Auto-label duration minutes"
-                type="number"
-                min={0.1}
-                max={1440}
-                step={0.5}
-                value={config.durationMinutes}
-                onChange={(event) => onConfigChange({ ...config, durationMinutes: Number(event.target.value) })}
+              <select
+                aria-label="Auto-label schedule mode"
+                value={config.scheduleMode}
+                onChange={(event) =>
+                  onConfigChange({ ...config, scheduleMode: event.target.value as AutoLabelConfig["scheduleMode"] })
+                }
                 className="w-full rounded-md border border-hairline bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-              />
+              >
+                <option value="duration">Duration</option>
+                <option value="automatic">Automatic</option>
+              </select>
             </label>
             <label className="block">
               <span className="mb-2 block font-mono text-xs uppercase tracking-wide text-ink-muted">
@@ -98,6 +99,24 @@ export function AutoLabelControls({
               />
             </label>
           </div>
+
+          {config.scheduleMode === "duration" ? (
+            <label className="block">
+              <span className="mb-2 block font-mono text-xs uppercase tracking-wide text-ink-muted">
+                Duration min
+              </span>
+              <input
+                aria-label="Auto-label duration minutes"
+                type="number"
+                min={0.1}
+                max={1440}
+                step={0.5}
+                value={config.durationMinutes}
+                onChange={(event) => onConfigChange({ ...config, durationMinutes: Number(event.target.value) })}
+                className="w-full rounded-md border border-hairline bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+              />
+            </label>
+          ) : null}
 
           <label className="block">
             <span className="mb-2 block font-mono text-xs uppercase tracking-wide text-ink-muted">

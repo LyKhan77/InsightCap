@@ -68,6 +68,7 @@ async def analyze(
     summary_prompt: Annotated[Optional[str], Form()] = None,
     auto_label_enabled: Annotated[bool, Form()] = False,
     auto_label_prompt: Annotated[str, Form()] = "",
+    auto_label_schedule_mode: Annotated[str, Form()] = "duration",
     auto_label_duration_minutes: Annotated[float, Form()] = 5.0,
     auto_label_confidence: Annotated[float, Form()] = 0.25,
     auto_label_model: Annotated[str, Form()] = "yoloe-26s-seg.pt",
@@ -81,6 +82,7 @@ async def analyze(
         auto_label=AutoLabelConfig(
             enabled=auto_label_enabled,
             prompt=auto_label_prompt,
+            schedule_mode=auto_label_schedule_mode,
             duration_minutes=auto_label_duration_minutes,
             confidence=auto_label_confidence,
             model=auto_label_model,
@@ -101,6 +103,7 @@ async def analyze_stream(
     summary_prompt: Annotated[Optional[str], Form()] = None,
     auto_label_enabled: Annotated[bool, Form()] = False,
     auto_label_prompt: Annotated[str, Form()] = "",
+    auto_label_schedule_mode: Annotated[str, Form()] = "duration",
     auto_label_duration_minutes: Annotated[float, Form()] = 5.0,
     auto_label_confidence: Annotated[float, Form()] = 0.25,
     auto_label_model: Annotated[str, Form()] = "yoloe-26s-seg.pt",
@@ -117,6 +120,7 @@ async def analyze_stream(
         auto_label=AutoLabelConfig(
             enabled=auto_label_enabled,
             prompt=auto_label_prompt,
+            schedule_mode=auto_label_schedule_mode,
             duration_minutes=auto_label_duration_minutes,
             confidence=auto_label_confidence,
             model=auto_label_model,

@@ -66,6 +66,7 @@ export async function streamVideoAnalysis(input: StreamAnalysisInput) {
     const payload = autoLabelPayload(input.autoLabel);
     formData.append("auto_label_enabled", String(payload.enabled));
     formData.append("auto_label_prompt", payload.prompt);
+    formData.append("auto_label_schedule_mode", payload.schedule_mode);
     formData.append("auto_label_duration_minutes", String(payload.duration_minutes));
     formData.append("auto_label_confidence", String(payload.confidence));
     formData.append("auto_label_model", payload.model);

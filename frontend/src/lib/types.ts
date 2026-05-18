@@ -30,6 +30,7 @@ export type AutoLabelStatus = {
 export type AutoLabelConfig = {
   enabled: boolean;
   prompt: string;
+  scheduleMode: "duration" | "automatic";
   durationMinutes: number;
   confidence: number;
   model: string;

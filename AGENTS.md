@@ -142,7 +142,7 @@ InsightCap/
 
 - vLLM-first captioning pipeline is now centered on `Qwen/Qwen3.5-2B` served as `qwen3.5:2b`.
 - Autonomous Auto-Labelling MVP is integrated for both Video Mode and RTSP Mode.
-- Auto-Labelling currently focuses on object pseudo-label export, not activity classification; label prompt is optional and can fall back to caption-derived object labels.
+- Auto-Labelling currently focuses on object pseudo-label export, not activity classification; label prompt is optional and can fall back to caption-derived object labels, with either duration-based or automatic/manual-stop scheduling.
 - YOLOE is the default grounding detector for Auto-Labelling (`yoloe-26s-seg.pt`), with `yoloe-26n-seg.pt` as the lightweight option.
 - The frontend remains a production-style Next.js multi-page UI with Control Drawer configuration and workspace status panels.
 
@@ -182,7 +182,7 @@ InsightCap/
 - Auto-Labelling defaults to YOLOE small (`yoloe-26s-seg.pt`) and uses `AUTO_LABEL_GPU_DEVICE` with default GPU `0` for detector inference.
 - Auto-Labelling dataset output is `datasets/auto-label/<mode>/<job_id>/` with raw images, bbox YOLO labels, overlays, JSONL metadata, and `data.yaml`.
 - `VLLMBackend` supports single-frame and multi-frame image requests and is covered by `tests/test_vllm_backend.py`.
-- `AutoLabelJob` exports bbox-only YOLO labels and supports caption-derived labels when no manual prompt is supplied; mask/SAM export, ROI, tracking, candidate activity, and activity classifier are deferred.
+- `AutoLabelJob` exports bbox-only YOLO labels, supports caption-derived labels when no manual prompt is supplied, and supports `duration` or `automatic` scheduling; mask/SAM export, ROI, tracking, candidate activity, and activity classifier are deferred.
 - FastAPI entrypoint is `backend.app.main:app`.
 - FastAPI includes system, analyze, Auto-Labelling overlay, and RTSP routers.
 - RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, WebSocket segment caption events, and independent Auto-Labelling start/stop.

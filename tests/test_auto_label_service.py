@@ -227,6 +227,40 @@ class AutoLabelServiceTest(unittest.TestCase):
             self.assertFalse(accepted)
             self.assertEqual(job.snapshot().status, "done")
 
+    def test_automatic_scheduler_accepts_until_manual_stop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            job = AutoLabelJob(
+                mode="rtsp",
+                job_id="session-automatic",
+                config=AutoLabelConfig(
+                    enabled=True,
+                    prompt="person",
+                    schedule_mode="automatic",
+                    duration_minutes=0.001,
+                    confidence=0.25,
+                    model="fake.pt",
+                ),
+                detector_factory=lambda _model: FakeDetector(),
+                dataset_root=Path(tmp),
+            )
+            job.start()
+            time.sleep(0.08)
+            accepted = job.enqueue_chunk(
+                frames=[np.zeros((8, 8, 3), dtype=np.uint8)],
+                segment_seq=1,
+                caption="person after duration window",
+                frame_seq_start=1,
+                source="camera",
+            )
+            snapshot = job.snapshot()
+            job.stop(drain=True)
+            job.join(timeout=3)
+
+            self.assertTrue(accepted)
+            self.assertEqual(snapshot.status, "active")
+            self.assertIsNone(snapshot.remaining_seconds)
+            self.assertEqual(job.snapshot().frames_labelled, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

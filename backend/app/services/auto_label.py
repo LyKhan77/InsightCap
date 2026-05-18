@@ -220,7 +220,11 @@ class AutoLabelJob:
             self._write_data_yaml()
             self.status = "active"
             self.started_at = datetime.now(timezone.utc)
-            self.expires_at = self.started_at + timedelta(minutes=self.config.duration_minutes)
+            self.expires_at = (
+                self.started_at + timedelta(minutes=self.config.duration_minutes)
+                if self.config.schedule_mode == "duration"
+                else None
+            )
         self._thread.start()
 
     def stop(self, drain: bool = True) -> None:
@@ -264,9 +268,9 @@ class AutoLabelJob:
 
     def is_accepting(self) -> bool:
         with self._lock:
-            if self.status != "active" or self.expires_at is None:
+            if self.status != "active":
                 return False
-            if datetime.now(timezone.utc) >= self.expires_at:
+            if self.expires_at is not None and datetime.now(timezone.utc) >= self.expires_at:
                 self.status = "draining"
                 self._stop_event.set()
                 return False
@@ -404,6 +408,7 @@ class AutoLabelJob:
             "frame_offset": item.frame_offset,
             "caption": item.caption,
             "label_prompt": self.config.prompt,
+            "schedule_mode": self.config.schedule_mode,
             "classes": classes,
             "class_registry": self.classes,
             "detector_model": self.config.model,

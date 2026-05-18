@@ -114,7 +114,8 @@ Parameter opsional:
 - `summary_prompt`: Custom prompt untuk ringkasan video
 - `auto_label_enabled`: Aktifkan Auto-Labelling video
 - `auto_label_prompt`: Opsional. Jika kosong, backend mengekstrak label objek dari caption chunk; jika diisi, pisahkan label dengan koma atau baris baru, misalnya `person, hard hat`
-- `auto_label_duration_minutes`: Durasi maksimum labelling
+- `auto_label_schedule_mode`: `duration` (default) atau `automatic`. Mode `automatic` tidak memakai batas waktu dan berhenti saat user stop manual atau job/session selesai.
+- `auto_label_duration_minutes`: Durasi maksimum labelling untuk mode `duration`
 - `auto_label_confidence`: Threshold confidence YOLOE
 - `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`. Varian ONNX lokal tidak ditampilkan untuk prompt dinamis karena wrapper ONNX Ultralytics tidak mengekspos `set_classes()`.
 
@@ -164,7 +165,8 @@ Parameter opsional:
 - `summary_prompt`: Custom prompt untuk ringkasan video
 - `auto_label_enabled`: Aktifkan Auto-Labelling video
 - `auto_label_prompt`: Opsional. Jika kosong, backend mengekstrak label objek dari caption chunk; jika diisi, pisahkan label dengan koma atau baris baru, misalnya `person, hard hat`
-- `auto_label_duration_minutes`: Durasi maksimum labelling
+- `auto_label_schedule_mode`: `duration` (default) atau `automatic`. Mode `automatic` tidak memakai batas waktu dan berhenti saat user stop manual atau job/session selesai.
+- `auto_label_duration_minutes`: Durasi maksimum labelling untuk mode `duration`
 - `auto_label_confidence`: Threshold confidence YOLOE
 - `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`. Varian ONNX lokal tidak ditampilkan untuk prompt dinamis karena wrapper ONNX Ultralytics tidak mengekspos `set_classes()`.
 
