@@ -10,7 +10,7 @@ from backend.app.schemas.auto_label import AutoLabelConfig, AutoLabelStatus
 
 class RTSPSessionCreateRequest(BaseModel):
     rtsp_url: str = Field(..., description="RTSP camera URL.")
-    model: str = Field("qwen3.5:0.8b", description="vLLM served model name.")
+    model: str = Field("qwen3.5:2b", description="vLLM served model name.")
     sample_every_seconds: float = Field(
         1.0,
         gt=0,

@@ -63,14 +63,14 @@ async def get_auto_label_overlay(path: str = Query(...)) -> Response:
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze(
     file: UploadFile,
-    model: Annotated[str, Form()] = "qwen3.5:0.8b",
+    model: Annotated[str, Form()] = "qwen3.5:2b",
     frame_prompt: Annotated[Optional[str], Form()] = None,
     summary_prompt: Annotated[Optional[str], Form()] = None,
     auto_label_enabled: Annotated[bool, Form()] = False,
     auto_label_prompt: Annotated[str, Form()] = "",
     auto_label_duration_minutes: Annotated[float, Form()] = 5.0,
     auto_label_confidence: Annotated[float, Form()] = 0.25,
-    auto_label_model: Annotated[str, Form()] = "yolov8s-worldv2.pt",
+    auto_label_model: Annotated[str, Form()] = "yoloe-26s-seg.pt",
 ) -> AnalysisResponse:
     """Upload a video file and receive a full caption result as JSON."""
     _validate_video(file)
@@ -96,14 +96,14 @@ async def analyze(
 @router.post("/analyze/stream")
 async def analyze_stream(
     file: UploadFile,
-    model: Annotated[str, Form()] = "qwen3.5:0.8b",
+    model: Annotated[str, Form()] = "qwen3.5:2b",
     frame_prompt: Annotated[Optional[str], Form()] = None,
     summary_prompt: Annotated[Optional[str], Form()] = None,
     auto_label_enabled: Annotated[bool, Form()] = False,
     auto_label_prompt: Annotated[str, Form()] = "",
     auto_label_duration_minutes: Annotated[float, Form()] = 5.0,
     auto_label_confidence: Annotated[float, Form()] = 0.25,
-    auto_label_model: Annotated[str, Form()] = "yolov8s-worldv2.pt",
+    auto_label_model: Annotated[str, Form()] = "yoloe-26s-seg.pt",
 ) -> StreamingResponse:
     """Upload a video file and receive captions as Server-Sent Events.
 

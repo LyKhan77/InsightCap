@@ -88,6 +88,7 @@ export function RtspControls(props: RtspControlsProps) {
             onChange={(event) => props.onModelChange(event.target.value)}
             className="w-full rounded-md border border-hairline bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
           >
+            <option value="qwen3.5:2b">qwen3.5:2b</option>
             <option value="qwen3.5:0.8b">qwen3.5:0.8b</option>
           </select>
         </label>

@@ -21,7 +21,7 @@ class AutoLabelConfig(BaseModel):
         le=1,
         description="Detector confidence threshold.",
     )
-    model: str = Field("yolov8s-worldv2.pt", description="YOLO-World detector model.")
+    model: str = Field("yoloe-26s-seg.pt", description="YOLOE detector model.")
 
 
 class AutoLabelStatus(BaseModel):

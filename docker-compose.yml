@@ -13,7 +13,7 @@ services:
       - ${HF_HOME:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
     command:
       - --model
-      - Qwen/Qwen3.5-0.8B
+      - Qwen/Qwen3.5-2B
       - --host
       - 0.0.0.0
       - --port
@@ -23,6 +23,6 @@ services:
       - --max-model-len
       - "32768"
       - --served-model-name
-      - qwen3.5:0.8b
+      - qwen3.5:2b
       - --limit-mm-per-prompt.image
       - "10"

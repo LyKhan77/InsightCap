@@ -16,7 +16,7 @@
 | Component | Technology |
 |-----------|------------|
 | Core Engine | Python 3.10+ |
-| VLM Backend | vLLM + Qwen/Qwen3.5-0.8B |
+| VLM Backend | vLLM + Qwen/Qwen3.5-2B |
 | Video Processing | OpenCV (cv2) |
 | API Layer | FastAPI + Uvicorn |
 | Web Interface | Next.js production frontend (`frontend/`) |
@@ -65,7 +65,7 @@
 │  │  │   └── live_reader.py   → LiveStreamReader (RTSP/camera)           │  │
 │  │  ├── inference/                                                        │  │
 │  │  │   ├── base.py           → CaptionBackend ABC                      │  │
-│  │  │   ├── vllm_backend.py    → VLLMBackend (qwen3.5:0.8b alias)       │  │
+│  │  │   ├── vllm_backend.py    → VLLMBackend (qwen3.5:2b alias)       │  │
 │  │  │   └── factory.py        → Backend instantiation                    │  │
 │  │  ├── prompt/                                                           │  │
 │  │  │   └── builder.py        → PromptBuilder (temporal context)        │  │
@@ -81,7 +81,7 @@
 │                       INFERENCE RUNTIME                                       │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │  vLLM Docker Service (localhost:8060/v1)                              │  │
-│  │  └── Model: Qwen/Qwen3.5-0.8B served as qwen3.5:0.8b                 │  │
+│  │  └── Model: Qwen/Qwen3.5-2B served as qwen3.5:2b                 │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -381,7 +381,7 @@ class VLLMBackend(CaptionBackend):
 
 Key features:
 - Sends image frames as OpenAI vision `image_url` data URLs
-- Uses `qwen3.5:0.8b` as the served model alias
+- Uses `qwen3.5:2b` as the served model alias
 - Calls `http://localhost:8060/v1/chat/completions`
 - Supports streaming and non-streaming modes
 
@@ -494,7 +494,7 @@ class RtspSession:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `model_id` | str | "qwen3.5:0.8b" | vLLM served model alias |
+| `model_id` | str | "qwen3.5:2b" | vLLM served model alias |
 | `stream` | bool | False | Enable token streaming |
 | `backend` | str | "vllm" | Inference backend |
 | `vllm_base_url` | str | "http://localhost:8060/v1" | vLLM OpenAI-compatible API |
@@ -508,7 +508,7 @@ class RtspSession:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `rtsp_url` | str | required | RTSP stream URL |
-| `model` | str | "qwen3.5:0.8b" | VLM model |
+| `model` | str | "qwen3.5:2b" | VLM model |
 | `sample_every_seconds` | float | 1.0 | Sampling interval |
 | `session_name` | str | hostname | Human-readable name |
 
@@ -524,7 +524,7 @@ Upload video and receive complete analysis as JSON.
 
 **Request**: `multipart/form-data`
 - `file`: Video file (mp4, avi, mov, mkv, webm, mpeg)
-- `model`: Model name (default: "qwen3.5:0.8b")
+- `model`: Model name (default: "qwen3.5:2b")
 
 **Response**: `AnalysisResponse`
 ```json
@@ -534,7 +534,7 @@ Upload video and receive complete analysis as JSON.
     "frame_count": 12,
     "duration_seconds": 12.4,
     "device_used": "mps",
-    "model_id": "qwen3.5:0.8b"
+    "model_id": "qwen3.5:2b"
 }
 ```
 

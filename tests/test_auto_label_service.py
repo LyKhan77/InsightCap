@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import tempfile
 import time
+import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
 from backend.app.schemas.auto_label import AutoLabelConfig
-from backend.app.services.auto_label import AutoLabelJob, Detection, clamp_bbox, parse_label_prompt
+from backend.app.schemas.rtsp import RTSPSessionCreateRequest
+from backend.app.schemas.video import AnalyzeParams
+from backend.core.config import InferenceConfig
+from backend.app.services.auto_label import AutoLabelJob, Detection, YOLOEDetector, clamp_bbox, parse_label_prompt
 
 
 class FakeDetector:
@@ -24,6 +29,71 @@ class FakeDetector:
 
 
 class AutoLabelServiceTest(unittest.TestCase):
+    def test_default_detector_model_is_yoloe_small(self):
+        self.assertEqual(AutoLabelConfig().model, "yoloe-26s-seg.pt")
+
+    def test_captioning_defaults_use_qwen35_2b(self):
+        self.assertEqual(InferenceConfig().model_id, "qwen3.5:2b")
+        self.assertEqual(AnalyzeParams().model, "qwen3.5:2b")
+        self.assertEqual(RTSPSessionCreateRequest(rtsp_url="rtsp://camera").model, "qwen3.5:2b")
+
+    def test_yoloe_detector_sets_text_classes_and_exports_bboxes_only(self):
+        class FakeTensor:
+            def __init__(self, values):
+                self._values = np.array(values)
+
+            def __len__(self):
+                return len(self._values)
+
+            def cpu(self):
+                return self
+
+            def numpy(self):
+                return self._values
+
+        class FakeBoxes:
+            xyxy = FakeTensor([[1.0, 2.0, 5.0, 6.0]])
+            conf = FakeTensor([0.73])
+            cls = FakeTensor([0])
+
+        class FakeResult:
+            boxes = FakeBoxes()
+            names = {0: "person"}
+            masks = object()
+
+        class FakeYOLO:
+            instances = []
+
+            def __init__(self, model_name):
+                self.model_name = model_name
+                self.classes = []
+                FakeYOLO.instances.append(self)
+
+            def set_classes(self, classes):
+                self.classes = list(classes)
+
+            def predict(self, source, imgsz, conf, save, verbose, device):
+                self.predict_args = {
+                    "source": source,
+                    "imgsz": imgsz,
+                    "conf": conf,
+                    "save": save,
+                    "verbose": verbose,
+                    "device": device,
+                }
+                return [FakeResult()]
+
+        with patch.dict("sys.modules", {"ultralytics": types.SimpleNamespace(YOLO=FakeYOLO)}):
+            detector = YOLOEDetector("yoloe-26s-seg.pt")
+            detections = detector.detect(np.zeros((8, 8, 3), dtype=np.uint8), ["person"], 0.25)
+
+        self.assertEqual(FakeYOLO.instances[0].model_name, "yoloe-26s-seg.pt")
+        self.assertEqual(FakeYOLO.instances[0].classes, ["person"])
+        self.assertEqual(FakeYOLO.instances[0].predict_args["device"], "0")
+        self.assertEqual(len(detections), 1)
+        self.assertEqual(detections[0].label, "person")
+        self.assertEqual(detections[0].bbox_xyxy, (1.0, 2.0, 5.0, 6.0))
+
     def test_prompt_parser_accepts_comma_and_newline_labels(self):
         self.assertEqual(
             parse_label_prompt("person, hard hat\nforklift"),

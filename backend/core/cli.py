@@ -17,7 +17,7 @@ from backend.core.pipeline import CaptionPipeline
 @click.argument("video_path", type=click.Path(exists=True))
 @click.option("--frame-interval", default=10, show_default=True, help="Capture 1 frame every N native frames.")
 @click.option("--max-frames", default=60, show_default=True, help="Maximum frames to process.")
-@click.option("--model", default="qwen3.5:0.8b", show_default=True, help="vLLM served model name.")
+@click.option("--model", default="qwen3.5:2b", show_default=True, help="vLLM served model name.")
 @click.option("--verbose", is_flag=True, default=False, help="Show per-frame captions while processing.")
 @click.option("--output", default=None, type=click.Path(), help="Save results to a JSON file.")
 def caption(

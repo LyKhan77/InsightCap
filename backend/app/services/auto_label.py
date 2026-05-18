@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
 import re
 import threading
@@ -39,12 +40,12 @@ class AutoLabelFrame:
     captured_at: datetime
 
 
-class YOLOWorldDetector:
-    """Thin lazy wrapper around Ultralytics YOLO-World."""
+class YOLOEDetector:
+    """Thin lazy wrapper around Ultralytics YOLOE for bbox-only object export."""
 
-    def __init__(self, model_name: str, image_size: int = DEFAULT_IMAGE_SIZE) -> None:
+    def __init__(self, model_name: str, image_size: int = DEFAULT_IMAGE_SIZE, device: str | None = None) -> None:
         try:
-            from ultralytics import YOLOWorld
+            from ultralytics import YOLO
         except ImportError as exc:
             raise RuntimeError(
                 "Auto-Labelling requires ultralytics. Install it with: pip install ultralytics"
@@ -52,7 +53,8 @@ class YOLOWorldDetector:
 
         self.model_name = model_name
         self.image_size = image_size
-        self._model = YOLOWorld(model_name)
+        self.device = device if device is not None else os.getenv("AUTO_LABEL_GPU_DEVICE", "0")
+        self._model = YOLO(model_name)
         self._classes: list[str] = []
 
     def detect(self, frame: np.ndarray, classes: list[str], confidence: float) -> list[Detection]:
@@ -66,6 +68,7 @@ class YOLOWorldDetector:
             conf=confidence,
             save=False,
             verbose=False,
+            device=self.device,
         )
         if not results:
             return []
@@ -96,8 +99,32 @@ class YOLOWorldDetector:
         return detections
 
 
+class YOLOWorldDetector(YOLOEDetector):
+    """Backward-compatible wrapper for legacy YOLO-World checkpoints."""
+
+    def __init__(self, model_name: str, image_size: int = DEFAULT_IMAGE_SIZE, device: str | None = None) -> None:
+        try:
+            from ultralytics import YOLOWorld
+        except ImportError as exc:
+            raise RuntimeError(
+                "Auto-Labelling requires ultralytics. Install it with: pip install ultralytics"
+            ) from exc
+
+        self.model_name = model_name
+        self.image_size = image_size
+        self.device = device if device is not None else os.getenv("AUTO_LABEL_GPU_DEVICE", "0")
+        self._model = YOLOWorld(model_name)
+        self._classes: list[str] = []
+
+
+def create_detector(model_name: str) -> YOLOEDetector:
+    if "world" in model_name.lower():
+        return YOLOWorldDetector(model_name)
+    return YOLOEDetector(model_name)
+
+
 def parse_label_prompt(prompt: str) -> list[str]:
-    """Convert a detector prompt into YOLO-World class labels."""
+    """Convert a detector prompt into YOLOE class labels."""
     labels = [
         part.strip()
         for part in re.split(r"[,;\n]+", prompt)
@@ -117,7 +144,7 @@ class AutoLabelJob:
         mode: str,
         job_id: str,
         config: AutoLabelConfig,
-        detector_factory: Optional[Callable[[str], YOLOWorldDetector]] = None,
+        detector_factory: Optional[Callable[[str], YOLOEDetector]] = None,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         dataset_root: Path = DATASET_ROOT,
     ) -> None:
@@ -132,7 +159,7 @@ class AutoLabelJob:
         self.metadata_path = self.dataset_dir / "annotations.jsonl"
         self.data_yaml_path = self.dataset_dir / "data.yaml"
 
-        self._detector_factory = detector_factory or (lambda model_name: YOLOWorldDetector(model_name))
+        self._detector_factory = detector_factory or create_detector
         self._queue: queue.Queue[AutoLabelFrame] = queue.Queue(maxsize=queue_size)
         self._lock = threading.RLock()
         self._stop_event = threading.Event()

@@ -22,7 +22,7 @@ import { PageHeader } from "./PageHeader";
 import { RtspControls } from "./RtspControls";
 import { RtspWorkspace } from "./RtspWorkspace";
 
-const DEFAULT_MODEL = "qwen3.5:0.8b";
+const DEFAULT_MODEL = "qwen3.5:2b";
 
 export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeChange: (t: Theme) => void }) {
   const router = useRouter();

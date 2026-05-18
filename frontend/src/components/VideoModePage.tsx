@@ -12,7 +12,7 @@ import { PageHeader } from "./PageHeader";
 import { VideoControls } from "./VideoControls";
 import { VideoWorkspace } from "./VideoWorkspace";
 
-const DEFAULT_MODEL = "qwen3.5:0.8b";
+const DEFAULT_MODEL = "qwen3.5:2b";
 
 type VideoCaptionEventData = {
   timestamp_seconds: number;

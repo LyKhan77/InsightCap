@@ -4,7 +4,7 @@
 
 **InsightCap API**
 
-InsightCap API adalah backend untuk analisis video dan monitoring kamera RTSP berbasis vision-language model `Qwen/Qwen3.5-0.8B` melalui vLLM.
+InsightCap API adalah backend untuk analisis video dan monitoring kamera RTSP berbasis vision-language model `Qwen/Qwen3.5-2B` melalui vLLM.
 
 API ini menyediakan dua mode terpisah:
 
@@ -20,7 +20,7 @@ Fungsi utama API:
 - membuat session monitoring RTSP secara live
 - mengirim event caption RTSP secara real-time via WebSocket
 - menyediakan preview stream RTSP yang ramah browser melalui MJPEG bridge
-- menjalankan Auto-Labelling opsional dengan YOLO-World untuk membuat pseudo-label bbox dataset
+- menjalankan Auto-Labelling opsional dengan YOLOE untuk membuat pseudo-label bbox dataset
 - menyediakan health check untuk status server dan device inferensi
 
 ## Base URL
@@ -52,7 +52,9 @@ Sebelum menjalankan API, pastikan vLLM aktif:
 docker compose up vllm
 ```
 
-vLLM melayani model Hugging Face `Qwen/Qwen3.5-0.8B` dengan alias kompatibel `qwen3.5:0.8b` di `http://localhost:8060/v1`.
+vLLM melayani model Hugging Face `Qwen/Qwen3.5-2B` dengan alias kompatibel `qwen3.5:2b` di `http://localhost:8060/v1`.
+
+Auto-Labelling YOLOE berjalan di proses API. Gunakan `AUTO_LABEL_GPU_DEVICE=0` agar grounding memakai GPU 0 dan tidak bentrok dengan vLLM di GPU 2.
 
 ## Ringkasan Endpoint
 
@@ -104,7 +106,7 @@ Untuk analisis batch file video dan mendapatkan hasil akhir lengkap:
 ```bash
 curl -X POST http://localhost:6060/api/v1/analyze \
   -F "file=@video.mp4" \
-  -F "model=qwen3.5:0.8b"
+  -F "model=qwen3.5:2b"
 ```
 
 Parameter opsional:
@@ -113,8 +115,8 @@ Parameter opsional:
 - `auto_label_enabled`: Aktifkan Auto-Labelling video
 - `auto_label_prompt`: Label target, pisahkan dengan koma atau baris baru, misalnya `person, hard hat`
 - `auto_label_duration_minutes`: Durasi maksimum labelling
-- `auto_label_confidence`: Threshold confidence YOLO-World
-- `auto_label_model`: Default `yolov8s-worldv2.pt`
+- `auto_label_confidence`: Threshold confidence YOLOE
+- `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`
 
 Perilaku fallback video pendek:
 - Jika hasil sampling <10 frame, backend menganalisis seluruh sampled frame sebagai satu segmen video pendek.
@@ -124,7 +126,7 @@ Contoh dengan custom prompts:
 ```bash
 curl -X POST http://localhost:6060/api/v1/analyze \
   -F "file=@traffic.mp4" \
-  -F "model=qwen3.5:0.8b" \
+  -F "model=qwen3.5:2b" \
   -F "frame_prompt=Analyze this traffic frame. Count vehicles and identify colors precisely." \
   -F "summary_prompt=How many white vehicles passed by?"
 ```
@@ -142,7 +144,7 @@ Contoh response:
   "frame_count": 3,
   "duration_seconds": 12.4,
   "device_used": "mps",
-  "model_id": "qwen3.5:0.8b"
+  "model_id": "qwen3.5:2b"
 }
 ```
 
@@ -153,7 +155,7 @@ Untuk menerima event bertahap selama analisis video:
 ```bash
 curl -X POST http://localhost:6060/api/v1/analyze/stream \
   -F "file=@video.mp4" \
-  -F "model=qwen3.5:0.8b" \
+  -F "model=qwen3.5:2b" \
   --no-buffer
 ```
 
@@ -163,8 +165,8 @@ Parameter opsional:
 - `auto_label_enabled`: Aktifkan Auto-Labelling video
 - `auto_label_prompt`: Label target, pisahkan dengan koma atau baris baru, misalnya `person, hard hat`
 - `auto_label_duration_minutes`: Durasi maksimum labelling
-- `auto_label_confidence`: Threshold confidence YOLO-World
-- `auto_label_model`: Default `yolov8s-worldv2.pt`
+- `auto_label_confidence`: Threshold confidence YOLOE
+- `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`
 
 Urutan event utama:
 
@@ -190,7 +192,7 @@ event: summary
 data: {"caption": "..."}
 
 event: done
-data: {"frame_count": 12, "duration_seconds": 12.4, "device_used": "mps", "model_id": "qwen3.5:0.8b"}
+data: {"frame_count": 12, "duration_seconds": 12.4, "device_used": "mps", "model_id": "qwen3.5:2b"}
 ```
 
 ### 4. Membuat Session RTSP
@@ -202,7 +204,7 @@ curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
   -H "Content-Type: application/json" \
   -d '{
     "rtsp_url": "rtsp://user:password@camera-host/stream",
-    "model": "qwen3.5:0.8b",
+    "model": "qwen3.5:2b",
     "sample_every_seconds": 1.0,
     "session_name": "front-gate"
   }'
@@ -218,7 +220,7 @@ curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
   -H "Content-Type: application/json" \
   -d '{
     "rtsp_url": "rtsp://user:password@camera-host/stream",
-    "model": "qwen3.5:0.8b",
+    "model": "qwen3.5:2b",
     "sample_every_seconds": 1.0,
     "session_name": "traffic-camera",
     "frame_prompt": "Monitor traffic and count vehicles. Report vehicle colors precisely.",
@@ -227,7 +229,7 @@ curl -X POST http://localhost:6060/api/v1/rtsp/sessions \
       "prompt": "person, motorcycle, car",
       "duration_minutes": 10,
       "confidence": 0.25,
-      "model": "yolov8s-worldv2.pt"
+      "model": "yoloe-26s-seg.pt"
     }
   }'
 ```
@@ -240,7 +242,7 @@ Contoh response:
   "session_name": "front-gate",
   "status": "running",
   "source": "rtsp://***@camera-host/stream",
-  "model_id": "qwen3.5:0.8b",
+  "model_id": "qwen3.5:2b",
   "sample_every_seconds": 1.0,
   "started_at": "2026-03-30T08:00:00+00:00",
   "last_event_at": "2026-03-30T08:00:01+00:00",
@@ -275,7 +277,7 @@ curl -X POST http://localhost:6060/api/v1/rtsp/sessions/<session_id>/auto-label/
     "prompt": "person, hard hat",
     "duration_minutes": 5,
     "confidence": 0.25,
-    "model": "yolov8s-worldv2.pt"
+    "model": "yoloe-26s-seg.pt"
   }'
 
 curl -X POST http://localhost:6060/api/v1/rtsp/sessions/<session_id>/auto-label/stop

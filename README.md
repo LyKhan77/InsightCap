@@ -1,6 +1,6 @@
 # InsightCap
 
-Video understanding and captioning system powered by `Qwen/Qwen3.5-0.8B` via vLLM.
+Video understanding and captioning system powered by `Qwen/Qwen3.5-2B` via vLLM.
 
 Analyzes a video file, generates 10-sampled-frame segment captions with temporal context, and produces a coherent narrative summary — all streamed in real-time to the browser.
 
@@ -8,7 +8,7 @@ The API supports two separate modes:
 
 - **Video Input Mode**: upload a finite video file and receive segment captions plus a final summary
 - **RTSP Camera Mode**: start a live RTSP monitoring session that captions 10 sampled-frame segments through a separate API namespace
-- **Auto-Labelling**: optional YOLO-World pseudo-labelling that exports raw frames, overlays, JSONL metadata, and YOLO labels from 10-frame chunks
+- **Auto-Labelling**: optional YOLOE pseudo-labelling that exports raw frames, overlays, JSONL metadata, and YOLO labels from 10-frame chunks
 
 ## Documentation
 
@@ -23,11 +23,13 @@ The API supports two separate modes:
    The first run pulls a large `vllm/vllm-openai` image, so expect the first
    startup to take time.
 
-   The service loads `Qwen/Qwen3.5-0.8B` and serves it under the alias
-   `qwen3.5:0.8b` at `http://localhost:8060/v1`.
+   The service loads `Qwen/Qwen3.5-2B` and serves it under the alias
+   `qwen3.5:2b` at `http://localhost:8060/v1`.
 
 3. By default the container uses GPU `2` (`NVIDIA GeForce RTX 4090`). Override
    with `VLLM_GPU_DEVICE=0 docker compose up vllm` if needed.
+
+4. Auto-Labelling uses Ultralytics on the API process. Set `AUTO_LABEL_GPU_DEVICE=0` to keep YOLOE on GPU 0 while vLLM stays on GPU 2.
 
 ## Setup
 
@@ -105,7 +107,7 @@ and direct FastAPI integration:
 
 **How it works:**
 1. Upload a video in the sidebar
-2. Select model (default: `qwen3.5:0.8b`)
+2. Select model (default: `qwen3.5:2b`)
 3. Click `[ INITIATE_ANALYSIS ]`
 4. Frontend posts to `/api/v1/analyze/stream`
 5. Backend emits `init`, one `frame` event per 10 sampled-frame segment, `summary`, and `done` SSE events
@@ -130,7 +132,7 @@ No FPS or frame interval config needed — sampling is auto-computed from the vi
 
 ### Auto-Labelling Output
 
-Auto-Labelling uses YOLO-World small by default (`yolov8s-worldv2.pt`) and treats generated boxes as pseudo-labels until human-reviewed. Generated artifacts are written under `datasets/auto-label/<mode>/<job_id>/`:
+Auto-Labelling uses YOLOE small by default (`yoloe-26s-seg.pt`). The MVP exports bbox-only labels and treats generated boxes as pseudo-labels until human-reviewed. Generated artifacts are written under `datasets/auto-label/<mode>/<job_id>/`:
 
 - `images/`: raw sampled frames
 - `labels/`: YOLO detection labels
@@ -150,7 +152,7 @@ python -m backend.core.cli path/to/video.mp4
 python -m backend.core.cli path/to/video.mp4 --verbose
 
 # Custom model
-python -m backend.core.cli path/to/video.mp4 --model qwen3.5:0.8b
+python -m backend.core.cli path/to/video.mp4 --model qwen3.5:2b
 
 # Save to JSON
 python -m backend.core.cli path/to/video.mp4 --output result.json
@@ -188,5 +190,5 @@ If Playwright browsers are not installed on the remote machine yet, run
 - Uploaded-video and RTSP analysis both batch 10 sampled frames per caption; uploaded videos also emit a final partial segment when fewer than 10 sampled frames remain
 - Sync is time-based approximation, not frame-perfect
 - No authentication or rate limiting on the API
-- Auto-Labelling depends on `ultralytics` and may download YOLO-World weights on first use
+- Auto-Labelling depends on `ultralytics` and may download YOLOE weights on first use
 - Generated Auto-Labelling boxes are pseudo-labels and should be reviewed before use as ground truth

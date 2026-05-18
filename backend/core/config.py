@@ -11,7 +11,7 @@ class SamplerConfig:
 
 @dataclass
 class InferenceConfig:
-    model_id: str = "qwen3.5:0.8b"
+    model_id: str = "qwen3.5:2b"
     stream: bool = False  
     backend: str = "vllm"
     max_tokens: int = 1024

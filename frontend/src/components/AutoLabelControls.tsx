@@ -95,8 +95,9 @@ export function AutoLabelControls({
               onChange={(event) => onConfigChange({ ...config, model: event.target.value })}
               className="w-full rounded-md border border-hairline bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
             >
+              <option value="yoloe-26s-seg.pt">yoloe-26s-seg.pt</option>
+              <option value="yoloe-26n-seg.pt">yoloe-26n-seg.pt</option>
               <option value="yolov8s-worldv2.pt">yolov8s-worldv2.pt</option>
-              <option value="yolov8m-worldv2.pt">yolov8m-worldv2.pt</option>
             </select>
           </label>
 

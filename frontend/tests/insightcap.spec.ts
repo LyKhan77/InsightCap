@@ -12,7 +12,7 @@ async function mockVideoAnalysis(page: Page) {
         'event: frame\ndata: {"index":0,"caption":"A person enters the monitored area.","timestamp_seconds":0}\n\n',
         'event: frame\ndata: {"index":1,"caption":"The person leaves the primary area.","timestamp_seconds":1}\n\n',
         'event: summary\ndata: {"caption":"The uploaded video shows one primary subject moving through a stable scene."}\n\n',
-        'event: done\ndata: {"frame_count":2,"duration_seconds":4.8,"device_used":"cuda","model_id":"qwen3.5:0.8b","video_fps":30,"frame_interval":30}\n\n',
+        'event: done\ndata: {"frame_count":2,"duration_seconds":4.8,"device_used":"cuda","model_id":"qwen3.5:2b","video_fps":30,"frame_interval":30}\n\n',
       ].join(""),
     });
   });
@@ -28,7 +28,7 @@ async function mockRtspBackend(page: Page) {
         session_name: "front-gate",
         status: "running",
         source: "rtsp://camera.local/live",
-        model_id: "qwen3.5:0.8b",
+        model_id: "qwen3.5:2b",
         sample_every_seconds: 1,
         started_at: "2026-05-13T00:00:00+00:00",
         last_event_at: null,
@@ -60,7 +60,7 @@ async function mockRtspBackend(page: Page) {
         session_name: "front-gate",
         status: "stopped",
         source: "rtsp://camera.local/live",
-        model_id: "qwen3.5:0.8b",
+        model_id: "qwen3.5:2b",
         sample_every_seconds: 1,
         started_at: "2026-05-13T00:00:00+00:00",
         last_event_at: "2026-05-13T00:00:01+00:00",
