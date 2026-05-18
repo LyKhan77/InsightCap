@@ -19,15 +19,17 @@ InsightCap is a Python + Next.js application with three layers:
 ## Key Features
 
 - Uploaded video analysis through FastAPI and the Next.js frontend.
-- SSE streaming for uploaded-video captions: `init`, `frame`, `summary`, `done`.
+- SSE streaming for uploaded-video captions: `init`, `frame`, `summary`, `done`, plus Auto-Labelling status events when enabled.
 - RTSP live monitoring with session lifecycle API.
 - RTSP live preview through MJPEG endpoint.
 - RTSP live events through WebSocket endpoint, with one caption per 10 sampled-frame segment.
+- Autonomous Auto-Labelling for Video and RTSP modes from completed 10-frame chunks.
+- YOLOE-based object pseudo-labelling exports raw frames, overlays, JSONL metadata, YOLO bbox labels, and `data.yaml`.
 - Frame sampling and temporal context prompts.
 - Summary generation from frame captions.
 - vLLM OpenAI-compatible inference backend as current default.
 - CLI entrypoint for local video analysis.
-- Unit tests for vLLM backend behavior.
+- Unit tests for vLLM backend, segment pipeline, video analysis, RTSP service, and Auto-Labelling behavior.
 
 ---
 
@@ -42,7 +44,9 @@ frontend/ Next.js production UI
 backend/app/ FastAPI
   ├─ /api/v1/analyze: uploaded-video JSON result
   ├─ /api/v1/analyze/stream: uploaded-video SSE result
+  ├─ /api/v1/auto-label/overlay: generated overlay preview
   ├─ /api/v1/rtsp/sessions: RTSP session create/list/get/delete
+  ├─ /api/v1/rtsp/sessions/{id}/auto-label/start|stop
   ├─ /api/v1/rtsp/sessions/{id}/preview.jpg
   ├─ /api/v1/rtsp/sessions/{id}/preview.mjpeg
   └─ /api/v1/rtsp/sessions/{id}/events: WebSocket events
@@ -80,6 +84,8 @@ InsightCap/
 │   │   ├── RtspWorkspace.tsx        # RTSP live stream + captions panels
 │   │   ├── CaptionsPanel.tsx        # Live captions display (shared)
 │   │   ├── MetadataStrip.tsx        # Metadata bar (shared)
+│   │   ├── AutoLabelControls.tsx    # Auto-Labelling controls for Video/RTSP drawers
+│   │   ├── AutoLabelPanel.tsx       # Auto-Labelling status, latest overlay, dataset path
 │   │   ├── Button.tsx               # Button component variants
 │   │   ├── StatusBadge.tsx          # Status indicator badges
 │   │   └── PromptEditor.tsx         # Prompt textarea editor
@@ -87,6 +93,7 @@ InsightCap/
 │   │   ├── types.ts                 # TypeScript types
 │   │   ├── use-theme.ts             # Theme hook (localStorage)
 │   │   ├── api.ts                   # FastAPI client helpers
+│   │   ├── auto-label.ts            # Auto-Labelling defaults/payload/status helpers
 │   │   ├── video-stream.ts          # Uploaded-video SSE parser
 │   │   ├── rtsp-events.ts           # RTSP WebSocket event normalizer
 │   │   └── export.ts                # JSON export utility
@@ -113,7 +120,10 @@ InsightCap/
 │       └── prompt/                   # PromptBuilder
 │
 ├── tests/
-│   └── test_vllm_backend.py          # Unit tests for vLLM backend and backend factory
+│   ├── test_vllm_backend.py          # Unit tests for vLLM backend and backend factory
+│   ├── test_auto_label_service.py    # Auto-Labelling detector/export/scheduler tests
+│   ├── test_video_analysis_service.py # Video SSE and Auto-Labelling integration tests
+│   └── test_rtsp_service.py          # RTSP session and Auto-Labelling scheduler tests
 │
 ├── test/                             # Local notes/log artifacts
 ├── docker-compose.yml                # Local vLLM OpenAI server on port 8060
@@ -130,51 +140,64 @@ InsightCap/
 
 ### Being Developed
 
-- Frontend production UI integration in `frontend/` (Next.js multi-page architecture).
-- vLLM-first inference service development.
-- Backend package cleanup in `backend/`.
+- vLLM-first captioning pipeline is now centered on `Qwen/Qwen3.5-2B` served as `qwen3.5:2b`.
+- Autonomous Auto-Labelling MVP is integrated for both Video Mode and RTSP Mode.
+- Auto-Labelling currently focuses on object pseudo-label export, not activity classification.
+- YOLOE is the default grounding detector for Auto-Labelling (`yoloe-26s-seg.pt`), with `yoloe-26n-seg.pt` as the lightweight option.
+- The frontend remains a production-style Next.js multi-page UI with Control Drawer configuration and workspace status panels.
 
 ### Current Problems
 
-- RTSP processing uses one worker thread/session and synchronous segment inference; concurrency is limited.
-- API has no authentication, authorization, or rate limiting.
-- Uploaded-video and RTSP inference depend on a running local vLLM OpenAI-compatible server.
-- vLLM runtime smoke test is pending: `docker compose up -d vllm` starts downloading the image, but the official image has multi-GB layers and was stopped before completion.
-- Uploaded-video SSE sync is duration-based, not frame-perfect.
-- Dev server uses Webpack instead of Turbopack due to system `fs.inotify.max_user_watches` limit (65536); Turbopack crashes with FATAL panic.
+- RTSP processing still uses one worker thread/session and synchronous segment inference; concurrency is limited.
+- API still has no authentication, authorization, or rate limiting.
+- Uploaded-video and RTSP inference still depend on a running local vLLM OpenAI-compatible server.
+- vLLM runtime smoke test for the current `Qwen/Qwen3.5-2B` compose setup is still pending in this workspace; tests mock or unit-test the integration, but do not prove the full Docker model download/runtime path.
+- Uploaded-video SSE sync is still duration-based, not frame-perfect.
+- Frontend dev server still uses Webpack via `next dev --port 3060 --webpack` because Turbopack previously hit the system `fs.inotify.max_user_watches` limit.
+- Auto-Labelling output is pseudo-label data only; human review is still required before treating exported boxes as ground truth.
+- Auto-Labelling uses Ultralytics YOLOE in the API process and may download detector weights on first use.
 
 ### Checkpoint
 
 - **Frontend** (`frontend/`): multi-page Next.js app with 3 routes.
   - `/` — Mode Switch Page: hero + two cards (Video / RTSP).
-  - `/video` — Video Mode: full-width Live Stream + Live Captions panels, controls in floating drawer.
-  - `/rtsp` — RTSP Mode: same layout, must stop monitoring before navigating back.
+  - `/video` — Video Mode: full-width raw video preview + Live Captions panels, controls in floating drawer.
+  - `/rtsp` — RTSP Mode: raw MJPEG preview + Live Captions panels, controls in floating drawer.
+  - No bbox overlay is drawn on the live/video preview; Auto-Labelling overlay is shown only in the compact Auto-Labelling panel.
   - No mode switch in header; "Change Mode" button navigates to `/`.
   - Floating settings drawer (gear icon) slides in from right with controls.
   - Light/dark theme persisted via localStorage (`useTheme` hook).
   - DESIGN.md emerald green style (`#3ecf8e` primary, Inter font, white/near-black canvas).
   - Dev server: Webpack (`--webpack` flag), port 3060.
   - Calls FastAPI directly via `NEXT_PUBLIC_API_BASE_URL`.
-  - `/video` streams uploaded-video captions over SSE.
-  - `/rtsp` creates backend sessions, renders MJPEG preview, and subscribes to WebSocket segment caption events.
+  - `/video` streams uploaded-video captions over SSE and can enqueue 10-frame chunks for Auto-Labelling.
+  - `/rtsp` creates backend sessions, renders MJPEG preview, subscribes to WebSocket segment caption events, and can start/stop Auto-Labelling independently from monitoring.
+  - Auto-Labelling controls are available in both `VideoControls` and `RtspControls`.
+  - Workspace metadata includes Auto-Labelling status, remaining time, labelled frame count, dropped frame count, latest overlay, and dataset path.
   - Playwright e2e tests mock backend SSE/REST/WS flows.
 - Default `InferenceConfig.backend` is `vllm`.
+- Default `InferenceConfig.model_id` is `qwen3.5:2b`.
 - Default `InferenceConfig.vllm_base_url` is `http://localhost:8060/v1`.
+- `docker-compose.yml` serves `Qwen/Qwen3.5-2B` as `qwen3.5:2b` on host/container port `8060`, defaults vLLM to GPU `2`, and allows 10 images per multimodal prompt.
+- Auto-Labelling defaults to YOLOE small (`yoloe-26s-seg.pt`) and uses `AUTO_LABEL_GPU_DEVICE` with default GPU `0` for detector inference.
+- Auto-Labelling dataset output is `datasets/auto-label/<mode>/<job_id>/` with raw images, bbox YOLO labels, overlays, JSONL metadata, and `data.yaml`.
 - `VLLMBackend` supports single-frame and multi-frame image requests and is covered by `tests/test_vllm_backend.py`.
-- `docker-compose.yml` serves vLLM on host/container port `8060` and allows 10 images per multimodal prompt.
+- `AutoLabelJob` exports bbox-only YOLO labels; mask/SAM export, ROI, tracking, candidate activity, and activity classifier are deferred.
 - FastAPI entrypoint is `backend.app.main:app`.
-- FastAPI includes system, analyze, and RTSP routers.
-- RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, and WebSocket segment caption events.
+- FastAPI includes system, analyze, Auto-Labelling overlay, and RTSP routers.
+- RTSP session service supports create/list/get/delete, reconnect, preview JPEG/MJPEG, WebSocket segment caption events, and independent Auto-Labelling start/stop.
 
 ---
 
 ## Contact & Resources
 
 - **Current Backend**: vLLM OpenAI-compatible server
-- **Served Model Name**: `qwen3.5:0.8b`
-- **Model Source**: `Qwen/Qwen3.5-0.8B`
+- **Served Model Name**: `qwen3.5:2b`
+- **Model Source**: `Qwen/Qwen3.5-2B`
 - **vLLM Base URL**: `http://localhost:8060/v1`
 - **vLLM Docker Service**: `insightcap-vllm`
+- **Auto-Labelling Detector**: `yoloe-26s-seg.pt` by default; `yoloe-26n-seg.pt` lightweight option
+- **Default GPU Split**: vLLM on GPU `2`; Auto-Labelling detector on `AUTO_LABEL_GPU_DEVICE` default GPU `0`
 - **API Port**: `6060`
 - **Frontend Port**: `3060`
 - **Main API Docs**: `API.md`
