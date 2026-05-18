@@ -84,6 +84,7 @@ docs/plans/
 *.ipynb
 
 # PyTorch/Machine Learning Models
+mobileclip2_b.ts
 *.pth
 *.pt
 *.onnx

@@ -123,6 +123,42 @@ def create_detector(model_name: str) -> YOLOEDetector:
     return YOLOEDetector(model_name)
 
 
+_CAPTION_LABEL_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "behind", "beside", "between", "by", "for", "from",
+    "front", "in", "inside", "into", "is", "it", "its", "near", "next", "of", "on", "onto", "or",
+    "over", "the", "their", "there", "this", "to", "under", "with", "within",
+    "wearing", "holding", "standing", "stands", "walking", "walks", "working", "works", "doing", "does",
+    "looking", "looks", "moving", "moves", "using", "uses", "seen", "visible", "appears", "showing", "shows",
+}
+
+
+def extract_caption_labels(caption: str, max_labels: int = 8) -> list[str]:
+    """Extract object-like detector labels from a caption when no manual prompt is given."""
+    tokens = [token for token in re.split(r"[^a-zA-Z0-9]+", caption.lower()) if token]
+    labels: list[str] = []
+    phrase: list[str] = []
+
+    def flush() -> None:
+        nonlocal phrase
+        if phrase:
+            label = " ".join(phrase[-3:])
+            if label and label not in labels:
+                labels.append(label)
+            phrase = []
+
+    for token in tokens:
+        if token in _CAPTION_LABEL_STOPWORDS or token.isdigit():
+            flush()
+            continue
+        phrase.append(token)
+        if len(phrase) >= 3:
+            flush()
+        if len(labels) >= max_labels:
+            break
+    flush()
+    return labels[:max_labels]
+
+
 def parse_label_prompt(prompt: str) -> list[str]:
     """Convert a detector prompt into YOLOE class labels."""
     labels = [
@@ -130,10 +166,7 @@ def parse_label_prompt(prompt: str) -> list[str]:
         for part in re.split(r"[,;\n]+", prompt)
         if part.strip()
     ]
-    if labels:
-        return labels
-    fallback = prompt.strip()
-    return [fallback] if fallback else ["object"]
+    return labels
 
 
 class AutoLabelJob:
@@ -151,7 +184,8 @@ class AutoLabelJob:
         self.mode = mode
         self.job_id = job_id
         self.config = config
-        self.classes = parse_label_prompt(config.prompt)
+        self.prompt_classes = parse_label_prompt(config.prompt)
+        self.classes = list(self.prompt_classes)
         self.dataset_dir = dataset_root / mode / job_id
         self.images_dir = self.dataset_dir / "images"
         self.labels_dir = self.dataset_dir / "labels"
@@ -286,8 +320,10 @@ class AutoLabelJob:
                     self.is_accepting()
                     continue
                 try:
-                    detections = detector.detect(item.frame, self.classes, self.config.confidence)
-                    self._write_frame_outputs(item, detections)
+                    classes = self._classes_for_item(item)
+                    detections = detector.detect(item.frame, classes, self.config.confidence)
+                    detections = self._remap_detections(detections)
+                    self._write_frame_outputs(item, detections, classes)
                     with self._lock:
                         self.frames_labelled += 1
                 finally:
@@ -320,7 +356,36 @@ class AutoLabelJob:
             except queue.Empty:
                 break
 
-    def _write_frame_outputs(self, item: AutoLabelFrame, detections: list[Detection]) -> None:
+    def _classes_for_item(self, item: AutoLabelFrame) -> list[str]:
+        classes = self.prompt_classes or extract_caption_labels(item.caption) or ["object"]
+        self._register_classes(classes)
+        return classes
+
+    def _register_classes(self, classes: Iterable[str]) -> None:
+        changed = False
+        with self._lock:
+            for label in classes:
+                if label not in self.classes:
+                    self.classes.append(label)
+                    changed = True
+        if changed:
+            self._write_data_yaml()
+
+    def _remap_detections(self, detections: list[Detection]) -> list[Detection]:
+        remapped: list[Detection] = []
+        for detection in detections:
+            class_id = self.classes.index(detection.label) if detection.label in self.classes else detection.class_id
+            remapped.append(
+                Detection(
+                    label=detection.label,
+                    class_id=class_id,
+                    confidence=detection.confidence,
+                    bbox_xyxy=detection.bbox_xyxy,
+                )
+            )
+        return remapped
+
+    def _write_frame_outputs(self, item: AutoLabelFrame, detections: list[Detection], classes: list[str]) -> None:
         stem = f"segment_{item.segment_seq:06d}_frame_{item.frame_seq:06d}"
         image_path = self.images_dir / f"{stem}.jpg"
         label_path = self.labels_dir / f"{stem}.txt"
@@ -339,7 +404,8 @@ class AutoLabelJob:
             "frame_offset": item.frame_offset,
             "caption": item.caption,
             "label_prompt": self.config.prompt,
-            "classes": self.classes,
+            "classes": classes,
+            "class_registry": self.classes,
             "detector_model": self.config.model,
             "confidence_threshold": self.config.confidence,
             "captured_at": item.captured_at.isoformat(),

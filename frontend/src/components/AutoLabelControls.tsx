@@ -21,6 +21,7 @@ export function AutoLabelControls({
   onAction,
 }: AutoLabelControlsProps) {
   const active = status?.status === "active" || status?.status === "draining";
+  const useCustomPrompt = config.prompt.trim().length > 0;
 
   return (
     <div className="border-t border-hairline pt-4">
@@ -46,11 +47,24 @@ export function AutoLabelControls({
 
       {config.enabled ? (
         <div className="grid gap-3">
-          <PromptEditor
-            title="Label prompt"
-            value={config.prompt}
-            onChange={(prompt) => onConfigChange({ ...config, prompt })}
-          />
+          <div className="grid gap-2">
+            <label className="inline-flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={useCustomPrompt}
+                onChange={(event) => onConfigChange({ ...config, prompt: event.target.checked ? "person" : "" })}
+                className="size-4 accent-primary-deep"
+              />
+              Custom label prompt
+            </label>
+            <PromptEditor
+              title="Label prompt"
+              value={config.prompt}
+              onChange={(prompt) => onConfigChange({ ...config, prompt })}
+              disabled={!useCustomPrompt}
+              placeholder="Extracted from captions when disabled"
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
@@ -105,7 +119,7 @@ export function AutoLabelControls({
             <Button
               variant={active ? "dark" : "secondary"}
               onClick={onAction}
-              disabled={disabled || !config.prompt.trim()}
+              disabled={disabled}
               icon={<Tag className="size-4" aria-hidden="true" />}
               className="w-full"
             >

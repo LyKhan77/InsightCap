@@ -113,10 +113,10 @@ Parameter opsional:
 - `frame_prompt`: Custom prompt untuk deskripsi setiap frame
 - `summary_prompt`: Custom prompt untuk ringkasan video
 - `auto_label_enabled`: Aktifkan Auto-Labelling video
-- `auto_label_prompt`: Label target, pisahkan dengan koma atau baris baru, misalnya `person, hard hat`
+- `auto_label_prompt`: Opsional. Jika kosong, backend mengekstrak label objek dari caption chunk; jika diisi, pisahkan label dengan koma atau baris baru, misalnya `person, hard hat`
 - `auto_label_duration_minutes`: Durasi maksimum labelling
 - `auto_label_confidence`: Threshold confidence YOLOE
-- `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`
+- `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`. Varian ONNX lokal tidak ditampilkan untuk prompt dinamis karena wrapper ONNX Ultralytics tidak mengekspos `set_classes()`.
 
 Perilaku fallback video pendek:
 - Jika hasil sampling <10 frame, backend menganalisis seluruh sampled frame sebagai satu segmen video pendek.
@@ -163,10 +163,10 @@ Parameter opsional:
 - `frame_prompt`: Custom prompt untuk deskripsi setiap frame
 - `summary_prompt`: Custom prompt untuk ringkasan video
 - `auto_label_enabled`: Aktifkan Auto-Labelling video
-- `auto_label_prompt`: Label target, pisahkan dengan koma atau baris baru, misalnya `person, hard hat`
+- `auto_label_prompt`: Opsional. Jika kosong, backend mengekstrak label objek dari caption chunk; jika diisi, pisahkan label dengan koma atau baris baru, misalnya `person, hard hat`
 - `auto_label_duration_minutes`: Durasi maksimum labelling
 - `auto_label_confidence`: Threshold confidence YOLOE
-- `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`
+- `auto_label_model`: Default `yoloe-26s-seg.pt`; opsi ringan `yoloe-26n-seg.pt`. Varian ONNX lokal tidak ditampilkan untuk prompt dinamis karena wrapper ONNX Ultralytics tidak mengekspos `set_classes()`.
 
 Urutan event utama:
 

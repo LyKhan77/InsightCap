@@ -13,7 +13,7 @@ from backend.app.schemas.auto_label import AutoLabelConfig
 from backend.app.schemas.rtsp import RTSPSessionCreateRequest
 from backend.app.schemas.video import AnalyzeParams
 from backend.core.config import InferenceConfig
-from backend.app.services.auto_label import AutoLabelJob, Detection, YOLOEDetector, clamp_bbox, parse_label_prompt
+from backend.app.services.auto_label import AutoLabelJob, Detection, YOLOEDetector, clamp_bbox, extract_caption_labels, parse_label_prompt
 
 
 class FakeDetector:
@@ -23,6 +23,23 @@ class FakeDetector:
                 label=classes[0],
                 class_id=0,
                 confidence=0.8,
+                bbox_xyxy=(1.0, 2.0, 5.0, 6.0),
+            )
+        ]
+
+
+class RecordingDetector:
+    def __init__(self):
+        self.calls = []
+
+    def detect(self, frame, classes, confidence):
+        self.calls.append(list(classes))
+        label = "forklift" if "forklift" in classes else classes[0]
+        return [
+            Detection(
+                label=label,
+                class_id=classes.index(label),
+                confidence=0.82,
                 bbox_xyxy=(1.0, 2.0, 5.0, 6.0),
             )
         ]
@@ -99,6 +116,47 @@ class AutoLabelServiceTest(unittest.TestCase):
             parse_label_prompt("person, hard hat\nforklift"),
             ["person", "hard hat", "forklift"],
         )
+
+    def test_caption_label_extractor_returns_object_labels_from_caption(self):
+        self.assertEqual(
+            extract_caption_labels("A person wearing a white shirt stands beside a forklift and a traffic cone."),
+            ["person", "white shirt", "forklift", "traffic cone"],
+        )
+
+    def test_blank_prompt_uses_caption_extracted_labels_for_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            detector = RecordingDetector()
+            job = AutoLabelJob(
+                mode="video",
+                job_id="job-1",
+                config=AutoLabelConfig(
+                    enabled=True,
+                    prompt="",
+                    duration_minutes=1,
+                    confidence=0.25,
+                    model="fake.pt",
+                ),
+                detector_factory=lambda _model: detector,
+                dataset_root=Path(tmp),
+            )
+            job.start()
+            job.enqueue_chunk(
+                frames=[np.zeros((8, 8, 3), dtype=np.uint8)],
+                segment_seq=1,
+                caption="A person wearing a white shirt stands beside a forklift.",
+                frame_seq_start=10,
+                source="upload",
+            )
+            job.stop(drain=True)
+            job.join(timeout=3)
+
+            dataset = Path(tmp) / "video" / "job-1"
+            self.assertEqual(detector.calls[0], ["person", "white shirt", "forklift"])
+            self.assertIn("forklift", (dataset / "data.yaml").read_text())
+            metadata = (dataset / "annotations.jsonl").read_text()
+            self.assertIn('"label_prompt": ""', metadata)
+            self.assertIn('"classes": ["person", "white shirt", "forklift"]', metadata)
+            self.assertIn('"label": "forklift"', metadata)
 
     def test_bbox_clamp_keeps_coordinates_inside_image(self):
         self.assertEqual(clamp_bbox((-2, 1, 20, 30), 10, 12), (0.0, 1, 10.0, 12.0))

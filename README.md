@@ -132,13 +132,15 @@ No FPS or frame interval config needed — sampling is auto-computed from the vi
 
 ### Auto-Labelling Output
 
-Auto-Labelling uses YOLOE small by default (`yoloe-26s-seg.pt`). The MVP exports bbox-only labels and treats generated boxes as pseudo-labels until human-reviewed. Generated artifacts are written under `datasets/auto-label/<mode>/<job_id>/`:
+Auto-Labelling uses YOLOE small by default (`yoloe-26s-seg.pt`). The label prompt is optional: when disabled or left blank, object labels are extracted from the caption for each chunk. The MVP exports bbox-only labels and treats generated boxes as pseudo-labels until human-reviewed. Generated artifacts are written under `datasets/auto-label/<mode>/<job_id>/`:
 
 - `images/`: raw sampled frames
 - `labels/`: YOLO detection labels
 - `overlays/`: annotated screenshots
 - `annotations.jsonl`: per-frame metadata, caption context, prompt, model, and detections
 - `data.yaml`: YOLO training config
+
+The local ONNX export (`models/yoloe/yoloe-26s-seg.onnx`) is kept for experiments, but the UI uses `.pt` models because YOLOE text prompts require `set_classes()`, which the exported ONNX wrapper does not expose.
 
 ---
 
