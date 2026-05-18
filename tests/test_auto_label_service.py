@@ -120,7 +120,7 @@ class AutoLabelServiceTest(unittest.TestCase):
     def test_caption_label_extractor_returns_object_labels_from_caption(self):
         self.assertEqual(
             extract_caption_labels("A person wearing a white shirt stands beside a forklift and a traffic cone."),
-            ["person", "white shirt", "forklift", "traffic cone"],
+            ["person", "shirt", "forklift", "traffic cone"],
         )
 
     def test_blank_prompt_uses_caption_extracted_labels_for_export(self):
@@ -151,12 +151,73 @@ class AutoLabelServiceTest(unittest.TestCase):
             job.join(timeout=3)
 
             dataset = Path(tmp) / "video" / "job-1"
-            self.assertEqual(detector.calls[0], ["person", "white shirt", "forklift"])
+            self.assertEqual(detector.calls[0], ["person", "shirt", "forklift"])
             self.assertIn("forklift", (dataset / "data.yaml").read_text())
             metadata = (dataset / "annotations.jsonl").read_text()
             self.assertIn('"label_prompt": ""', metadata)
-            self.assertIn('"classes": ["person", "white shirt", "forklift"]', metadata)
+            self.assertIn('"classes": ["person", "shirt", "forklift"]', metadata)
             self.assertIn('"label": "forklift"', metadata)
+
+    def test_caption_label_extractor_rejects_meta_phrases(self):
+        caption = (
+            "Across the provided frames, the scene remains largely static. "
+            "A man in a purple shirt is seated at a desk working on a laptop. "
+            "Another individual in a blue shirt is visible near monitors and cardboard boxes."
+        )
+        labels = extract_caption_labels(caption)
+        for bad in ["provided frames", "scene remains", "static", "discernible",
+                     "activity", "change", "across", "interval", "throughout"]:
+            self.assertNotIn(bad, labels)
+        self.assertIn("person", labels)
+        self.assertIn("desk", labels)
+        self.assertIn("laptop", labels)
+        self.assertIn("shirt", labels)
+
+    def test_canonical_mapping_normalizes_labels(self):
+        labels = extract_caption_labels(
+            "A woman wearing a red shirt near a screen with cardboard boxes."
+        )
+        self.assertIn("person", labels)
+        self.assertIn("shirt", labels)
+        self.assertIn("monitor", labels)
+        self.assertIn("cardboard box", labels)
+
+    def test_caption_label_extractor_fallback_without_spacy(self):
+        from unittest.mock import patch
+        with patch("backend.app.services.auto_label._get_spacy_nlp", return_value=None):
+            labels = extract_caption_labels(
+                "A person wearing a white shirt stands beside a forklift."
+            )
+            self.assertIn("person", labels)
+            self.assertIn("forklift", labels)
+
+    def test_manual_prompt_bypasses_caption_extraction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            detector = RecordingDetector()
+            job = AutoLabelJob(
+                mode="video",
+                job_id="job-manual",
+                config=AutoLabelConfig(
+                    enabled=True,
+                    prompt="white shirt, forklift",
+                    duration_minutes=1,
+                    confidence=0.25,
+                    model="fake.pt",
+                ),
+                detector_factory=lambda _model: detector,
+                dataset_root=Path(tmp),
+            )
+            job.start()
+            job.enqueue_chunk(
+                frames=[np.zeros((8, 8, 3), dtype=np.uint8)],
+                segment_seq=1,
+                caption="A man in a purple shirt with cardboard boxes",
+                frame_seq_start=1,
+                source="upload",
+            )
+            job.stop(drain=True)
+            job.join(timeout=3)
+            self.assertEqual(detector.calls[0], ["white shirt", "forklift"])
 
     def test_bbox_clamp_keeps_coordinates_inside_image(self):
         self.assertEqual(clamp_bbox((-2, 1, 20, 30), 10, 12), (0.0, 1, 10.0, 12.0))

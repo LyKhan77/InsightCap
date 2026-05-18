@@ -142,7 +142,7 @@ InsightCap/
 
 - vLLM-first captioning pipeline is now centered on `Qwen/Qwen3.5-2B` served as `qwen3.5:2b`.
 - Autonomous Auto-Labelling MVP is integrated for both Video Mode and RTSP Mode.
-- Auto-Labelling currently focuses on object pseudo-label export, not activity classification; label prompt is optional and can fall back to caption-derived object labels, with either duration-based or automatic/manual-stop scheduling.
+- Auto-Labelling currently focuses on object pseudo-label export, not activity classification; label prompt is optional and can fall back to caption-derived object labels extracted via spaCy noun chunks with canonical mapping and meta-phrase filtering (falls back to regex-based extraction when spaCy is unavailable), with either duration-based or automatic/manual-stop scheduling.
 - YOLOE is the default grounding detector for Auto-Labelling (`yoloe-26s-seg.pt`), with `yoloe-26n-seg.pt` as the lightweight option.
 - The frontend remains a production-style Next.js multi-page UI with Control Drawer configuration and workspace status panels.
 

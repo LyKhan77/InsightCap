@@ -124,16 +124,112 @@ def create_detector(model_name: str) -> YOLOEDetector:
 
 
 _CAPTION_LABEL_STOPWORDS = {
-    "a", "an", "and", "are", "as", "at", "be", "behind", "beside", "between", "by", "for", "from",
-    "front", "in", "inside", "into", "is", "it", "its", "near", "next", "of", "on", "onto", "or",
-    "over", "the", "their", "there", "this", "to", "under", "with", "within",
-    "wearing", "holding", "standing", "stands", "walking", "walks", "working", "works", "doing", "does",
-    "looking", "looks", "moving", "moves", "using", "uses", "seen", "visible", "appears", "showing", "shows",
+    # structural / function words
+    "a", "an", "and", "are", "as", "at", "be", "behind", "beside", "between", "by",
+    "for", "from", "front", "in", "inside", "into", "is", "it", "its", "near",
+    "next", "of", "on", "onto", "or", "over", "the", "their", "there", "this",
+    "to", "under", "with", "within",
+    # possessive pronouns
+    "his", "her", "their", "my", "your", "our",
+    # action/state verbs
+    "wearing", "holding", "standing", "stands", "walking", "walks", "working",
+    "works", "doing", "does", "looking", "looks", "moving", "moves", "using",
+    "uses", "seen", "visible", "appears", "showing", "shows",
+    # action/state-only blockers
+    "seated", "focused", "remains", "movement", "setting", "postures",
+    "interactions", "attention", "focus", "actions", "work", "workplace",
+    # meta-caption terms
+    "scene", "frame", "frames", "provided", "interval", "activity", "change",
+    "static", "discernible", "observation", "temporal", "throughout", "another",
+    "overall", "continuous", "largely", "several", "various", "many", "multiple",
+    "some", "same", "different", "segment", "segments", "period", "recording",
+    "video", "camera", "consistent", "meaningful", "sustained", "open-plan",
+    # abstract/non-object
+    "something", "what", "background", "environment", "area", "positions",
+    "level", "state", "interaction", "posture", "hand", "hands", "arm", "arms",
+    "mouth", "head", "position", "left", "right", "first", "second", "third",
+    "one", "two", "three", "exposed", "industrial",
 }
 
+_CAPTION_META_PHRASES = {
+    "provided frames", "scene remains", "no discernible", "no change",
+    "remains static", "remains largely", "no visible", "no activity",
+    "throughout the", "across the", "temporal segment", "meaningful temporal",
+    "no meaningful", "consistent and", "consistent state", "entire period",
+    "static recording", "static office", "office scene",
+}
 
-def extract_caption_labels(caption: str, max_labels: int = 8) -> list[str]:
-    """Extract object-like detector labels from a caption when no manual prompt is given."""
+_CAPTION_CANONICAL_MAP: dict[str, str] = {
+    "man": "person",
+    "woman": "person",
+    "individual": "person",
+    "guy": "person",
+    "boy": "person",
+    "girl": "person",
+    "men": "person",
+    "women": "person",
+    "individuals": "person",
+    "seated person": "person",
+    "primary individual": "person",
+    "three individuals": "person",
+    "other two individuals": "person",
+    "three men": "person",
+    "first person": "person",
+    "third person": "person",
+    "screen": "monitor",
+    "laptop screen": "laptop",
+    "open laptop screen": "laptop",
+    "boxes": "cardboard box",
+    "cardboard boxes": "cardboard box",
+    "desks": "desk",
+    "their desks": "desk",
+    "laptops": "laptop",
+    "their laptop": "laptop",
+    "his laptop": "laptop",
+}
+
+_nlp = None
+
+
+def _get_spacy_nlp():
+    """Lazy-load spaCy English model. Returns None if unavailable."""
+    global _nlp
+    if _nlp is not None:
+        return None if _nlp is False else _nlp
+    try:
+        import spacy
+        _nlp = spacy.load("en_core_web_sm")
+        return _nlp
+    except (ImportError, OSError):
+        _nlp = False
+        return None
+
+
+def _extract_labels_spacy(nlp, caption: str) -> list[str]:
+    """Extract candidate object labels using spaCy noun chunks."""
+    doc = nlp(caption)
+    labels: list[str] = []
+    for chunk in doc.noun_chunks:
+        text = chunk.text.lower().strip()
+        text = re.sub(
+            r"^(a |an |the |some |several |multiple |another |this |that |these |those "
+            r"|his |her |their |my |your |our )+",
+            "", text,
+        )
+        text = text.strip()
+        if not text or len(text.split()) > 3:
+            continue
+        tokens = text.split()
+        if all(t in _CAPTION_LABEL_STOPWORDS for t in tokens):
+            continue
+        if any(t in _CAPTION_LABEL_STOPWORDS for t in tokens) and len(tokens) <= 2:
+            continue
+        labels.append(text)
+    return labels
+
+
+def _extract_labels_regex(caption: str) -> list[str]:
+    """Fallback regex-based label extraction when spaCy is unavailable."""
     tokens = [token for token in re.split(r"[^a-zA-Z0-9]+", caption.lower()) if token]
     labels: list[str] = []
     phrase: list[str] = []
@@ -142,7 +238,7 @@ def extract_caption_labels(caption: str, max_labels: int = 8) -> list[str]:
         nonlocal phrase
         if phrase:
             label = " ".join(phrase[-3:])
-            if label and label not in labels:
+            if label:
                 labels.append(label)
             phrase = []
 
@@ -153,10 +249,66 @@ def extract_caption_labels(caption: str, max_labels: int = 8) -> list[str]:
         phrase.append(token)
         if len(phrase) >= 3:
             flush()
-        if len(labels) >= max_labels:
-            break
     flush()
-    return labels[:max_labels]
+    return labels
+
+
+def _canonicalize_label(label: str) -> str:
+    """Apply canonical mapping and pattern-based normalization."""
+    if label in _CAPTION_CANONICAL_MAP:
+        return _CAPTION_CANONICAL_MAP[label]
+    parts = label.split()
+    # Normalize "<color> shirt" and "<color> <color> shirt" -> "shirt"
+    if parts and parts[-1] == "shirt" and len(parts) >= 2:
+        return "shirt"
+    # Simple plural: single word ending in 's' (but not 'ss')
+    if len(parts) == 1 and label.endswith("s") and not label.endswith("ss"):
+        singular = label[:-1]
+        if singular in _CAPTION_CANONICAL_MAP:
+            return _CAPTION_CANONICAL_MAP[singular]
+        return singular
+    return label
+
+
+def _is_meta_phrase(label: str) -> bool:
+    """Return True if label is a meta-caption phrase that should be rejected."""
+    label_lower = label.lower()
+    return any(phrase in label_lower for phrase in _CAPTION_META_PHRASES)
+
+
+def _is_valid_label(label: str) -> bool:
+    """Return True if label looks like a valid detector object class."""
+    if not label or len(label) < 2:
+        return False
+    if len(label.split()) > 4:
+        return False
+    if len(label) <= 3 and " " not in label:
+        return False
+    tokens = label.split()
+    if all(t in _CAPTION_LABEL_STOPWORDS for t in tokens):
+        return False
+    return True
+
+
+def extract_caption_labels(caption: str, max_labels: int = 8) -> list[str]:
+    """Extract object-like detector labels from a caption when no manual prompt is given."""
+    nlp = _get_spacy_nlp()
+    if nlp is not None:
+        labels = _extract_labels_spacy(nlp, caption)
+    else:
+        labels = _extract_labels_regex(caption)
+
+    labels = [_canonicalize_label(label) for label in labels]
+    labels = [label for label in labels if not _is_meta_phrase(label)]
+    labels = [label for label in labels if _is_valid_label(label)]
+
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for label in labels:
+        if label not in seen:
+            seen.add(label)
+            deduped.append(label)
+    return deduped[:max_labels]
 
 
 def parse_label_prompt(prompt: str) -> list[str]:

@@ -39,6 +39,7 @@ python3 -m venv env
 source env/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm
 ```
 
 ## Running the Full System
@@ -132,7 +133,7 @@ No FPS or frame interval config needed — sampling is auto-computed from the vi
 
 ### Auto-Labelling Output
 
-Auto-Labelling uses YOLOE small by default (`yoloe-26s-seg.pt`). The label prompt is optional: when disabled or left blank, object labels are extracted from the caption for each chunk. Scheduling can run for a fixed duration or in Automatic mode until the user stops it manually (or the video job/session ends). The MVP exports bbox-only labels and treats generated boxes as pseudo-labels until human-reviewed. Generated artifacts are written under `datasets/auto-label/<mode>/<job_id>/`:
+Auto-Labelling uses YOLOE small by default (`yoloe-26s-seg.pt`). The label prompt is optional: when disabled or left blank, object labels are extracted from the caption for each chunk using spaCy noun chunk analysis with canonical normalization (falls back to rule-based extraction if spaCy is not installed). Scheduling can run for a fixed duration or in Automatic mode until the user stops it manually (or the video job/session ends). The MVP exports bbox-only labels and treats generated boxes as pseudo-labels until human-reviewed. Generated artifacts are written under `datasets/auto-label/<mode>/<job_id>/`:
 
 - `images/`: raw sampled frames
 - `labels/`: YOLO detection labels
