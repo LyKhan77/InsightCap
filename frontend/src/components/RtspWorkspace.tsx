@@ -14,6 +14,7 @@ type RtspWorkspaceProps = {
   streamError: string | null;
   captions: CaptionRow[];
   metadata: RtspMetadata;
+  streamDuration: string;
 };
 
 export function RtspWorkspace({
@@ -25,6 +26,7 @@ export function RtspWorkspace({
   streamError,
   captions,
   metadata,
+  streamDuration,
 }: RtspWorkspaceProps) {
   const live = metadata.status === "live" || metadata.status === "connecting";
 
@@ -41,7 +43,14 @@ export function RtspWorkspace({
                 Live stream
               </h1>
             </div>
-            <StatusBadge label={live ? "camera online" : "camera idle"} tone={live ? "online" : "idle"} />
+            <div className="flex items-center gap-3">
+              {live && (
+                <span className="font-mono text-sm tabular-nums tracking-tight text-ink-muted">
+                  {streamDuration}
+                </span>
+              )}
+              <StatusBadge label={live ? "camera online" : "camera idle"} tone={live ? "online" : "idle"} />
+            </div>
           </div>
 
           <div className="p-4">
@@ -55,12 +64,7 @@ export function RtspWorkspace({
                   className="aspect-video w-full bg-canvas-night object-contain"
                 />
               ) : (
-                <div className="relative aspect-video bg-[linear-gradient(90deg,#1c1c1c_0,#202020_50%,#1c1c1c_100%)] p-5">
-                  <div className="grid h-full grid-cols-6 gap-3 opacity-70">
-                    {Array.from({ length: 18 }).map((_, index) => (
-                      <div key={index} className="rounded-sm border border-white/10 bg-white/10" />
-                    ))}
-                  </div>
+                <div className="relative aspect-video bg-canvas-night p-5">
                   <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm leading-6 text-white/70">
                     Preview will appear after the backend connects to the RTSP source.
                   </div>

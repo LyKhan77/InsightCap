@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { mapRtspStatus, normalizeRtspEvent } from "@/lib/rtsp-events";
 import type { CaptionRow, RtspMetadata, RtspStatus, Theme } from "@/lib/types";
+import { useStreamDuration } from "@/lib/use-stream-duration";
 import { AppFooter } from "./AppFooter";
 import { ControlDrawer } from "./ControlDrawer";
 import { PageHeader } from "./PageHeader";
@@ -47,6 +48,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
     autoLabel: DEFAULT_AUTO_LABEL_STATUS,
   });
   const [rtspPreset, setRtspPreset] = useState("default");
+  const streamDuration = useStreamDuration(rtspStatus);
   const [rtspCustomPrompt, setRtspCustomPrompt] = useState(false);
   const [rtspFramePrompt, setRtspFramePrompt] = useState(
     RTSP_PROMPT_PRESETS.default.framePrompt,
@@ -292,6 +294,7 @@ export function RtspModePage({ theme, onThemeChange }: { theme: Theme; onThemeCh
           streamError={streamError}
           captions={rtspCaptions}
           metadata={rtspMetadata}
+          streamDuration={streamDuration}
         />
       </section>
 
